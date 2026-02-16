@@ -2097,13 +2097,16 @@ function parseVoiceText(text) {
             document.getElementById('voice-status').style.color = 'var(--text-secondary)';
             isRecording = false;
             document.getElementById('voice-record-btn').classList.remove('recording');
-            return;
+            return []; // Return empty array
         }
 
         scannedVoiceItems = items;
         console.log('✅ About to render items...');
         renderVoiceItems();
         console.log('✅ Render complete!');
+
+        // Return items for smart voice mode
+        return items;
 
     } catch (error) {
         console.error('❌ Error in parseVoiceText:', error);
@@ -2112,6 +2115,9 @@ function parseVoiceText(text) {
         document.getElementById('voice-status').style.color = 'var(--danger)';
         isRecording = false;
         document.getElementById('voice-record-btn').classList.remove('recording');
+
+        // Return empty array on error
+        return [];
     }
 }
 
@@ -2791,19 +2797,29 @@ function processInventoryVoiceCommand(text) {
     // Check for "יש לנו" - ADD TO INVENTORY
     if (lowerText.includes('יש לנו') || lowerText.includes('יש לי') || lowerText.includes('קניתי')) {
         const itemsText = text.replace(/יש לנו|יש לי|קניתי/gi, '').trim();
-        const items = parseVoiceText(itemsText);
+        console.log('📦 Extracted items text for inventory:', itemsText);
 
-        if (items.length > 0) {
+        const items = parseVoiceText(itemsText);
+        console.log('✅ Parsed items:', items);
+
+        if (items && items.length > 0) {
             addItemsToInventoryFromVoice(items);
+        } else {
+            console.warn('⚠️ No items parsed from:', itemsText);
         }
     }
     // Check for "נגמר ה" or "חסר לנו" - ADD TO SHOPPING LIST
     else if (lowerText.includes('נגמר') || lowerText.includes('חסר')) {
         const itemsText = text.replace(/נגמר ה|נגמר|חסר לנו|חסר/gi, '').trim();
-        const items = parseVoiceText(itemsText);
+        console.log('🛒 Extracted items text for shopping:', itemsText);
 
-        if (items.length > 0) {
+        const items = parseVoiceText(itemsText);
+        console.log('✅ Parsed items:', items);
+
+        if (items && items.length > 0) {
             addItemsToShoppingListFromVoice(items);
+        } else {
+            console.warn('⚠️ No items parsed from:', itemsText);
         }
     }
 }

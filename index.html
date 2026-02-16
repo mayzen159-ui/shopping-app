@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>רשימת הקניות שלנו</title>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <button class="settings-btn" onclick="openSettings()">
+                <i class="ph ph-gear"></i>
+            </button>
+            <h1>Momo & Snuf Grocery List</h1>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="shopping" onclick="switchTab('shopping')">
+                <i class="ph ph-shopping-cart"></i>
+                רשימת קניות
+                <span class="badge" id="shopping-count">0</span>
+            </button>
+            <button class="tab-btn" data-tab="inventory" onclick="switchTab('inventory')">
+                <i class="ph ph-package"></i>
+                מלאי
+                <span class="badge" id="inventory-count">0</span>
+            </button>
+            <button class="tab-btn" data-tab="statistics" onclick="switchTab('statistics')">
+                <i class="ph ph-chart-line"></i>
+                סטטיסטיקות
+            </button>
+        </nav>
+
+        <!-- Shopping List Tab -->
+        <div class="tab-content active" id="shopping-tab">
+            <div class="add-item-section">
+                <input type="text" id="new-item-input" placeholder="הוסף פריט לרשימת הקניות..." />
+                <button class="btn-add" onclick="addShoppingItem()">
+                    <i class="ph ph-plus"></i>
+                </button>
+            </div>
+
+            <div class="shopping-controls">
+                <div class="shopping-mode-toggle">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="shopping-mode-toggle" onchange="toggleShoppingMode()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">מצב קניות</span>
+                </div>
+                <button class="btn-voice" onclick="openVoiceRecorder()">
+                    <i class="ph ph-microphone"></i>
+                    הקלט קניות
+                </button>
+                <button class="btn-download" onclick="downloadShoppingList()">
+                    <i class="ph ph-download-simple"></i>
+                    הורד רשימה
+                </button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div id="shopping-progress" class="shopping-progress">
+                <div class="progress-info">
+                    <span id="progress-text">0 מתוך 0</span>
+                    <span id="progress-percentage">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+
+            <div id="shopping-list" class="items-list"></div>
+        </div>
+
+        <!-- Inventory Tab -->
+        <div class="tab-content" id="inventory-tab">
+            <div class="add-item-section">
+                <input type="text" id="new-inventory-input" placeholder="הוסף פריט למלאי (לדוגמה: חלב, ביצים)..." />
+                <button class="btn-add" onclick="addInventoryItem()">
+                    <i class="ph ph-plus"></i>
+                </button>
+            </div>
+
+            <div class="filter-section">
+                <select id="inventory-category-filter" onchange="renderInventory()">
+                    <option value="">כל הקטגוריות</option>
+                    <option value="Produce">🥬 ירקות ופירות</option>
+                    <option value="Dairy">🥛 חלב וביצים</option>
+                    <option value="Meat">🥩 בשר ודגים</option>
+                    <option value="Pantry">🥫 מזווה</option>
+                    <option value="Canned">🥫 שימורים</option>
+                    <option value="Sauces">🍯 רטבים וממרחים</option>
+                    <option value="Oils">🫒 שמנים</option>
+                    <option value="Frozen">🧊 קפואים</option>
+                    <option value="Bakery">🍞 לחמים ומאפים</option>
+                    <option value="Beverages">🥤 משקאות</option>
+                    <option value="Snacks">🍿 חטיפים</option>
+                    <option value="Household">🧹 ניקיון ובית</option>
+                    <option value="Personal">🧴 טיפוח אישי</option>
+                    <option value="Other">📦 אחר</option>
+                </select>
+                <button class="btn-secondary" onclick="showLowStock()">
+                    <i class="ph ph-warning"></i> מלאי נמוך
+                </button>
+            </div>
+
+            <div id="inventory-list" class="items-list"></div>
+        </div>
+
+        <!-- Statistics Tab -->
+        <div class="tab-content" id="statistics-tab">
+            <div id="statistics-content" class="statistics-content"></div>
+        </div>
+    </div>
+
+    <!-- Modal for Item Details -->
+    <div id="item-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+                <h2 id="modal-title">פרטי הפריט</h2>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>שם הפריט</label>
+                    <input type="text" id="modal-item-name" />
+                </div>
+                <div class="form-group">
+                    <label>קטגוריה</label>
+                    <select id="modal-category">
+                        <option value="Produce">🥬 ירקות ופירות</option>
+                        <option value="Dairy">🥛 חלב וביצים</option>
+                        <option value="Meat">🥩 בשר ודגים</option>
+                        <option value="Pantry">🥫 מזווה</option>
+                        <option value="Canned">🥫 שימורים</option>
+                        <option value="Sauces">🍯 רטבים וממרחים</option>
+                        <option value="Oils">🫒 שמנים</option>
+                        <option value="Frozen">🧊 קפואים</option>
+                        <option value="Bakery">🍞 לחמים ומאפים</option>
+                        <option value="Beverages">🥤 משקאות</option>
+                        <option value="Snacks">🍿 חטיפים</option>
+                        <option value="Household">🧹 ניקיון ובית</option>
+                        <option value="Personal">🧴 טיפוח אישי</option>
+                        <option value="Other">📦 אחר</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>כמות</label>
+                    <div class="quantity-selector">
+                        <button type="button" class="quantity-btn" data-value="0.1">0.1</button>
+                        <button type="button" class="quantity-btn" data-value="0.3">0.3</button>
+                        <button type="button" class="quantity-btn" data-value="0.5">0.5</button>
+                        <button type="button" class="quantity-btn" data-value="0.7">0.7</button>
+                        <button type="button" class="quantity-btn" data-value="1">1</button>
+                        <button type="button" class="quantity-btn" data-value="2">2</button>
+                        <button type="button" class="quantity-btn" data-value="3">3</button>
+                        <button type="button" class="quantity-btn" data-value="4">4</button>
+                        <button type="button" class="quantity-btn" data-value="5">5</button>
+                    </div>
+                    <input type="text" id="modal-quantity" placeholder="או הזן ידנית (למשל: 6, 1.5, 2/3)" style="margin-top: 10px;" />
+                    <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">בחר מהעיגולים או הזן ידנית</p>
+                </div>
+                <div class="form-group">
+                    <label>התראת מלאי נמוך (להזמין כשמתחת ל)</label>
+                    <input type="text" id="modal-min-quantity" placeholder="למשל: 2, 1.5, 2/3" />
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">ניתן להזין מספר שלם (2), עשרוני (1.5), או שבר (2/3)</p>
+                </div>
+                <div class="form-group">
+                    <label>תאריך תפוגה</label>
+                    <input type="date" id="modal-expiration-date" />
+                    <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">פריטים שעברו את תאריך התפוגה יתווספו אוטומטית לרשימת הקניות</p>
+                </div>
+                <div class="form-group">
+                    <label>הערות</label>
+                    <textarea id="modal-notes" rows="3" placeholder="מותג מועדף, גודל, וכו'"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal()">ביטול</button>
+                <button class="btn-primary" onclick="saveItemDetails()">שמור</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voice Recorder Modal -->
+    <div id="voice-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button class="close-btn" onclick="closeVoiceModal()">&times;</button>
+                <h2>🎤 הקלטת קניות</h2>
+            </div>
+            <div class="modal-body">
+                <div class="voice-recorder-section" id="voice-recorder-section">
+                    <div style="text-align: center; padding: 20px;">
+                        <div id="voice-status" style="font-size: 1.1rem; font-weight: 600; margin-bottom: 20px; color: var(--text-secondary);">
+                            לחץ על המיקרופון והקלט את המוצרים שקנית
+                        </div>
+
+                        <button id="voice-record-btn" class="btn-voice-record" onclick="toggleVoiceRecording()">
+                            <i class="ph ph-microphone" style="font-size: 3rem;"></i>
+                        </button>
+
+                        <div id="voice-transcript" style="margin-top: 20px; padding: 15px; background: var(--surface-elevated); border-radius: 8px; min-height: 60px; max-height: 200px; overflow-y: auto; text-align: right; direction: rtl; display: none;">
+                            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 8px;">תמליל:</p>
+                            <p id="transcript-text" style="color: var(--text); font-size: 0.95rem; line-height: 1.6;"></p>
+                        </div>
+
+                        <p style="text-align: center; color: var(--text-tertiary); margin-top: 15px; font-size: 0.85rem;">
+                            דוגמה: "חלב 2, ביצים 10, גזר 3, לחם אחד"
+                        </p>
+                    </div>
+                </div>
+
+                <div class="voice-items-section" id="voice-items-section" style="display: none;">
+                    <div style="margin-bottom: 15px;">
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                            בדוק את הפריטים שזוהו. לחץ ✓ לאישור או ✏️ לעריכה.
+                        </p>
+                    </div>
+                    <div id="voice-items-list" class="voice-items-list"></div>
+                </div>
+            </div>
+            <div class="modal-footer" id="voice-footer" style="display: none;">
+                <button class="btn-secondary" onclick="closeVoiceModal()">ביטול</button>
+                <button class="btn-primary" onclick="addVoiceItemsToInventory()">הוסף למלאי</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button class="close-btn" onclick="closeSettings()">&times;</button>
+                <h2>הגדרות</h2>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>השם שלך</label>
+                    <input type="text" id="user-name" placeholder="הכנס את שמך" />
+                </div>
+                <div class="form-group">
+                    <label>שם בן/בת הזוג</label>
+                    <input type="text" id="partner-name" placeholder="הכנס את שם בן/בת הזוג" />
+                </div>
+                <hr>
+                <h3>סנכרון מידע</h3>
+                <p class="help-text">האפליקציה משתמשת ב-Firebase לסנכרון אוטומטי!</p>
+                <p class="help-text" style="color: var(--success); font-weight: 600; margin-top: 5px;">
+                    <i class="ph ph-check-circle"></i> אם פתחת את האפליקציה באותו דפדפן (Chrome/Edge) בשני מכשירים, הנתונים מסתנכרנים אוטומטית בזמן אמת!
+                </p>
+
+                <p class="help-text" style="margin-top: 20px;">אם הסנכרון לא עובד, תוכלי לייבא/ייצא את הנתונים ידנית:</p>
+                <div class="sync-section" style="flex-direction: column; gap: 10px;">
+                    <button class="btn-primary" onclick="downloadBackup()" style="width: 100%;">
+                        <i class="ph ph-download-simple"></i> ייצא נתונים (הורד קובץ)
+                    </button>
+                    <button class="btn-primary" onclick="document.getElementById('import-file').click()" style="width: 100%;">
+                        <i class="ph ph-upload-simple"></i> ייבא נתונים (טען קובץ)
+                    </button>
+                </div>
+                <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importFromFile(this)" />
+                <hr>
+                <h3>גיבוי ושחזור</h3>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button class="btn-primary" onclick="downloadBackup()" style="flex: 1;">
+                        💾 הורד גיבוי
+                    </button>
+                    <button class="btn-primary" onclick="document.getElementById('restore-file').click()" style="flex: 1;">
+                        📂 שחזר גיבוי
+                    </button>
+                </div>
+                <input type="file" id="restore-file" accept=".json" style="display: none;" onchange="restoreBackup(this)" />
+                <p class="help-text" id="last-saved-info">טוען מידע...</p>
+                <hr>
+                <h3>נתוני דוגמה</h3>
+                <p class="help-text">טען נתוני דוגמה לבדיקה (מוחק את המידע הקיים)</p>
+                <button class="btn-secondary" onclick="if(confirm('האם להחליף את כל המידע הקיים בנתוני דוגמה?')) { loadSampleData(); closeSettings(); }" style="width: 100%;">
+                    🧪 טען נתוני דוגמה
+                </button>
+                <hr>
+                <button class="btn-danger" onclick="clearAllData()">מחק את כל המידע</button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="saveSettings()">שמור</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

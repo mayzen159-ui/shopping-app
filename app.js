@@ -411,7 +411,7 @@ function createShoppingItemCard(item) {
             </div>
             <div class="item-meta">
                 ${item.quantity > 1 ? `<span class="item-quantity">כמות: ${item.quantity}</span>` : ''}
-                ${!isShoppingMode && item.notes ? `<span>📝 ${escapeHtml(item.notes)}</span>` : ''}
+                ${item.notes ? `<span style="color: var(--warning); font-weight: 600;">${escapeHtml(item.notes)}</span>` : ''}
             </div>
         </div>
         <div class="item-actions">

@@ -1933,30 +1933,30 @@ function startVoiceRecording() {
         const debugLog = document.getElementById('debug-log');
         debugLog.innerHTML += `📥 Results: ${event.results.length}, Index: ${event.resultIndex}<br>`;
 
-        // FIXED: Don't accumulate, rebuild from ALL results each time
-        let newFinalTranscript = '';
-        let interimTranscript = '';
+        // MOBILE FIX: Only take the LAST (most recent) result
+        // Mobile sends multiple duplicate results, we only want the latest one
+        if (event.results.length > 0) {
+            const lastResult = event.results[event.results.length - 1];
+            const transcript = lastResult[0].transcript;
+            const isFinal = lastResult.isFinal;
 
-        // Loop through ALL results (not just new ones) to rebuild full text
-        for (let i = 0; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            const isFinal = event.results[i].isFinal;
-            console.log(`Result ${i}: "${transcript}", isFinal:`, isFinal);
-            debugLog.innerHTML += `${i}: "${transcript}" (${isFinal ? 'FINAL' : 'interim'})<br>`;
+            console.log(`Last result: "${transcript}", isFinal:`, isFinal);
+            debugLog.innerHTML += `Last: "${transcript}" (${isFinal ? 'FINAL' : 'interim'})<br>`;
 
             if (isFinal) {
-                newFinalTranscript += transcript + ' ';
+                // Only update finalTranscript when we get a final result
+                finalTranscript = transcript;
             } else {
-                interimTranscript += transcript;
+                // Show interim result but don't save it
+                document.getElementById('transcript-text').textContent = transcript;
+                debugLog.scrollTop = debugLog.scrollHeight;
+                return;
             }
         }
 
-        // Update finalTranscript with the rebuilt version (no accumulation!)
-        finalTranscript = newFinalTranscript;
-
-        const fullText = finalTranscript + interimTranscript;
-        console.log('📝 Full transcript so far:', fullText);
-        debugLog.innerHTML += `📝 Full: "${fullText}"<br>`;
+        const fullText = finalTranscript;
+        console.log('📝 Final transcript:', fullText);
+        debugLog.innerHTML += `📝 Final: "${fullText}"<br>`;
         document.getElementById('transcript-text').textContent = fullText;
 
         // Auto-scroll debug log

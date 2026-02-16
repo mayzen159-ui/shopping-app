@@ -1924,14 +1924,10 @@ function startVoiceRecording() {
         document.getElementById('voice-status').style.color = 'var(--danger)';
         document.getElementById('voice-transcript').style.display = 'block';
         // Debug panel is always visible now
-        document.getElementById('debug-log').innerHTML = '🎤 Recording started...<br>';
     };
 
     recognition.onresult = (event) => {
         console.log('🎙️ onresult triggered, event.results.length:', event.results.length);
-
-        const debugLog = document.getElementById('debug-log');
-        debugLog.innerHTML += `📥 Results: ${event.results.length}, Index: ${event.resultIndex}<br>`;
 
         // MOBILE FIX: Only take the LAST (most recent) result
         // Mobile sends multiple duplicate results, we only want the latest one
@@ -1941,7 +1937,6 @@ function startVoiceRecording() {
             const isFinal = lastResult.isFinal;
 
             console.log(`Last result: "${transcript}", isFinal:`, isFinal);
-            debugLog.innerHTML += `Last: "${transcript}" (${isFinal ? 'FINAL' : 'interim'})<br>`;
 
             if (isFinal) {
                 // Only update finalTranscript when we get a final result
@@ -1949,18 +1944,13 @@ function startVoiceRecording() {
             } else {
                 // Show interim result but don't save it
                 document.getElementById('transcript-text').textContent = transcript;
-                debugLog.scrollTop = debugLog.scrollHeight;
                 return;
             }
         }
 
         const fullText = finalTranscript;
         console.log('📝 Final transcript:', fullText);
-        debugLog.innerHTML += `📝 Final: "${fullText}"<br>`;
         document.getElementById('transcript-text').textContent = fullText;
-
-        // Auto-scroll debug log
-        debugLog.scrollTop = debugLog.scrollHeight;
     };
 
     recognition.onerror = (event) => {
@@ -2013,10 +2003,6 @@ function parseVoiceText(text) {
     console.log('📝 Text length:', text.length);
     console.log('📝 Text split by spaces:', text.split(/\s+/));
 
-    const debugLog = document.getElementById('debug-log');
-    debugLog.innerHTML += `<br>🔧 PARSING: "${text}"<br>`;
-    debugLog.innerHTML += `Length: ${text.length}, Words: ${text.split(/\s+/).length}<br>`;
-
     // MOBILE FIX: Clean up repeated text first
     // "חסה חסה חסה 2" -> "חסה 2"
     const words = text.split(/\s+/);
@@ -2053,7 +2039,6 @@ function parseVoiceText(text) {
     }
 
     const cleanedText = cleanedWords.join(' ');
-    debugLog.innerHTML += `🧹 Cleaned: "${cleanedText}"<br>`;
     console.log('🧹 Cleaned text:', cleanedText);
 
     // Now parse the cleaned text
@@ -2142,10 +2127,8 @@ function parseVoiceText(text) {
             }
 
             console.log('📋 Smart split segments:', segments);
-            debugLog.innerHTML += `📋 Smart split: ${segments.length} segments<br>`;
         } else {
             console.log('📋 Comma-split segments:', segments);
-            debugLog.innerHTML += `📋 Comma split: ${segments.length} segments<br>`;
         }
 
         // If still no segments, fall back to the whole text
@@ -2245,11 +2228,6 @@ function parseVoiceText(text) {
         }
 
         console.log('🎯 Total items found:', items.length);
-        debugLog.innerHTML += `<br>✅ FOUND ${items.length} ITEMS:<br>`;
-        items.forEach((item, idx) => {
-            debugLog.innerHTML += `${idx + 1}. ${item.name} x${item.quantity}<br>`;
-        });
-        debugLog.scrollTop = debugLog.scrollHeight;
 
         if (items.length === 0) {
             alert('לא זוהו פריטים. נסי שוב ודבר בצורה ברורה יותר.\nדוגמה: "חלב 2, ביצים 10, גזר 3"');
@@ -2262,10 +2240,6 @@ function parseVoiceText(text) {
 
         scannedVoiceItems = items;
         console.log('✅ About to render items...');
-
-        // Show a "Continue" button instead of auto-showing items
-        debugLog.innerHTML += `<br><button onclick="continueToVoiceItems()" style="margin-top: 10px; padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">✅ נראה טוב - המשך</button>`;
-        debugLog.scrollTop = debugLog.scrollHeight;
 
         document.getElementById('voice-status').textContent = '✅ סיימתי לעבד - בדקי למטה את הפרטים';
         document.getElementById('voice-status').style.color = 'var(--success)';

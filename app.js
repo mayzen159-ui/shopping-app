@@ -2234,56 +2234,92 @@ function addVoiceItemsToInventory() {
         return;
     }
 
-    let addedCount = 0;
+    let addedToInventory = 0;
+    let addedToShopping = 0;
 
     scannedVoiceItems.forEach(voiceItem => {
-        // Check if item already exists in inventory
-        const existingItem = appData.inventory.find(i =>
-            i.name.toLowerCase() === voiceItem.name.toLowerCase()
-        );
+        // Check if this item has an "action" field (from smart voice mode)
+        if (voiceItem.action === 'shopping') {
+            // ADD TO SHOPPING LIST
+            const existing = appData.shoppingList.find(s =>
+                s.name.toLowerCase() === voiceItem.name.toLowerCase() && !s.purchased
+            );
 
-        if (existingItem) {
-            // Update existing item
-            existingItem.quantity += voiceItem.quantity;
-            existingItem.lastRestocked = new Date().toISOString();
+            if (existing) {
+                existing.quantity += voiceItem.quantity;
+            } else {
+                appData.shoppingList.push({
+                    id: Date.now() + Math.random(),
+                    name: voiceItem.name,
+                    category: voiceItem.category,
+                    quantity: voiceItem.quantity,
+                    purchased: false,
+                    addedBy: appData.settings.userName || 'קולי',
+                    addedDate: new Date().toISOString(),
+                    notes: '🎤 נוסף בהקלטה'
+                });
+            }
+            addedToShopping++;
         } else {
-            // Add new item to inventory
-            appData.inventory.unshift({
-                id: Date.now() + addedCount,
-                name: voiceItem.name,
-                category: voiceItem.category,
-                quantity: voiceItem.quantity,
-                minQuantity: 1,
-                expirationDate: '',
-                lastRestocked: new Date().toISOString(),
-                notes: 'נוסף מהקלטה קולית'
-            });
+            // ADD TO INVENTORY (default behavior)
+            // SMART MATCHING: Try to find existing item by plural/singular
+            const existingItem = findInventoryItemFlexible(voiceItem.name);
+
+            if (existingItem) {
+                existingItem.quantity += voiceItem.quantity;
+                existingItem.lastRestocked = new Date().toISOString();
+            } else {
+                appData.inventory.unshift({
+                    id: Date.now() + Math.random(),
+                    name: voiceItem.name,
+                    category: voiceItem.category,
+                    quantity: voiceItem.quantity,
+                    minQuantity: 1,
+                    expirationDate: '',
+                    lastRestocked: new Date().toISOString(),
+                    notes: 'נוסף מהקלטה קולית'
+                });
+            }
+
+            // Remove from shopping list if exists
+            appData.shoppingList = appData.shoppingList.filter(s =>
+                s.name.toLowerCase() !== voiceItem.name.toLowerCase()
+            );
+
+            addedToInventory++;
         }
-
-        // Remove from shopping list if exists
-        appData.shoppingList = appData.shoppingList.filter(s =>
-            s.name.toLowerCase() !== voiceItem.name.toLowerCase()
-        );
-
-        addedCount++;
     });
 
-    // Also add to grocery list history
-    const itemsForHistory = scannedVoiceItems.map(item => ({
-        id: Date.now() + Math.random(),
-        name: item.name,
-        quantity: item.quantity
-    }));
-    createGroceryListFromVoice(itemsForHistory);
+    // Add to grocery list history (only inventory items)
+    const inventoryItems = scannedVoiceItems.filter(item => item.action !== 'shopping');
+    if (inventoryItems.length > 0) {
+        const itemsForHistory = inventoryItems.map(item => ({
+            id: Date.now() + Math.random(),
+            name: item.name,
+            quantity: item.quantity
+        }));
+        createGroceryListFromVoice(itemsForHistory);
+    }
 
     saveData();
     renderAll();
     closeVoiceModal();
 
-    alert(`✅ ${addedCount} פריטים נוספו למלאי ולרשימות הקודמות!`);
+    // Show appropriate message
+    let message = '';
+    if (addedToInventory > 0) message += `✅ ${addedToInventory} פריטים נוספו למלאי`;
+    if (addedToShopping > 0) {
+        if (message) message += '\n';
+        message += `🛒 ${addedToShopping} פריטים נוספו לרשימת קניות`;
+    }
+    alert(message);
 
-    // Switch to inventory tab
-    switchTab('inventory');
+    // Switch to inventory tab if items were added there
+    if (addedToInventory > 0) {
+        switchTab('inventory');
+    } else if (addedToShopping > 0) {
+        switchTab('shopping');
+    }
 }
 
 // Load sample data for testing (call from console: loadSampleData())
@@ -2810,7 +2846,9 @@ function processInventoryVoiceCommand(text) {
 
     // Check for "יש לנו" - ADD TO INVENTORY
     if (lowerText.includes('יש לנו') || lowerText.includes('יש לי') || lowerText.includes('קניתי')) {
-        const itemsText = text.replace(/יש לנו|יש לי|קניתי/gi, '').trim();
+        let itemsText = text.replace(/יש לנו|יש לי|קניתי/gi, '').trim();
+        // Remove common noise words
+        itemsText = itemsText.replace(/\bלנו\b|\bלי\b/gi, '').trim();
         console.log('📦 Extracted items text for inventory:', itemsText);
 
         const items = parseVoiceText(itemsText);
@@ -2827,9 +2865,11 @@ function processInventoryVoiceCommand(text) {
             console.warn('⚠️ No items parsed from:', itemsText);
         }
     }
-    // Check for "נגמר ה" or "חסר לנו" - ADD TO SHOPPING LIST
+    // Check for "נגמר" or "חסר" - ADD TO SHOPPING LIST (support both "נגמר ה" and "נגמר")
     else if (lowerText.includes('נגמר') || lowerText.includes('חסר')) {
-        const itemsText = text.replace(/נגמר ה|נגמר|חסר לנו|חסר/gi, '').trim();
+        let itemsText = text.replace(/נגמר לנו ה|נגמר לנו|נגמר ה|נגמר|חסר לנו|חסר/gi, '').trim();
+        // Remove "ה" prefix if it appears standalone
+        itemsText = itemsText.replace(/^ה\s+/gi, '').trim();
         console.log('🛒 Extracted items text for shopping:', itemsText);
 
         const items = parseVoiceText(itemsText);
@@ -2928,46 +2968,35 @@ function addItemsToShoppingListFromVoice(items) {
     console.log('🛒 Added to shopping list:', addedItems);
 }
 
-// Render pending items for confirmation
+// Render pending items for confirmation (use voice modal like regular recording)
 function renderPendingInventoryItems() {
-    const container = document.getElementById('inventory-pending-list');
-    container.innerHTML = '';
-
     const allPending = [...pendingInventoryItems, ...pendingShoppingItems];
 
     if (allPending.length === 0) {
-        document.getElementById('inventory-pending-items').style.display = 'none';
-        document.getElementById('inventory-confirm-btn').style.display = 'none';
         return;
     }
 
-    // Show pending section
-    document.getElementById('inventory-pending-items').style.display = 'block';
-    document.getElementById('inventory-confirm-btn').style.display = 'inline-block';
+    // Use the SAME modal as regular voice recording!
+    // Convert to scannedVoiceItems format
+    scannedVoiceItems = allPending.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        category: item.category,
+        confirmed: false,
+        action: item.action // Keep track of where it goes
+    }));
 
-    allPending.forEach((item, index) => {
-        const itemCard = document.createElement('div');
-        itemCard.className = 'voice-item-card';
+    // Close smart voice modal
+    document.getElementById('inventory-voice-modal').classList.remove('active');
 
-        const actionIcon = item.action === 'inventory' ? '✅' : '🛒';
-        const actionText = item.action === 'inventory' ? 'למלאי' : 'לקניות';
+    // Open the regular voice items modal
+    document.getElementById('voice-modal').classList.add('active');
+    document.getElementById('voice-recorder-section').style.display = 'none';
+    document.getElementById('voice-items-section').style.display = 'block';
+    document.getElementById('voice-footer').style.display = 'flex';
 
-        itemCard.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="flex: 1;">
-                    <strong>${escapeHtml(item.name)}</strong>
-                    <span style="color: var(--text-secondary); margin-right: 10px;">
-                        כמות: ${item.quantity}
-                    </span>
-                    <span style="color: ${item.action === 'inventory' ? 'var(--success)' : 'var(--warning)'}; font-size: 0.85rem;">
-                        ${actionIcon} ${actionText}
-                    </span>
-                </div>
-            </div>
-        `;
-
-        container.appendChild(itemCard);
-    });
+    // Render items using existing function
+    renderVoiceItems();
 }
 
 // Confirm and add items

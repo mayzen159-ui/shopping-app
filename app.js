@@ -604,7 +604,6 @@ function renderInventoryByCategory(items) {
                         <span style="color: var(--text-secondary); cursor: pointer;" onclick="quickEditMinQuantity(${item.id})" title="לחץ לשינוי מינימום">
                             מינימום: ${item.minQuantity || 1} 🔧
                         </span>
-                        ${isLowStock ? `<span style="color: var(--warning); font-weight: 600;">⚠️ קנה ${needToBuy} להגיע למינימום!</span>` : ''}
                         ${isExpired ? '<span style="color: var(--danger); font-weight: 600;">🚫 פג תוקף</span>' : daysUntilExpiry !== null && daysUntilExpiry <= 3 ? `<span style="color: var(--warning); font-weight: 600;">⏰ פג תוקף בעוד ${daysUntilExpiry} ${daysUntilExpiry === 1 ? 'יום' : 'ימים'}</span>` : item.expirationDate ? `<span style="color: var(--text-tertiary);">📅 תפוגה: ${formatDate(item.expirationDate)}</span>` : ''}
                         ${item.notes ? `<span>📝 ${escapeHtml(item.notes)}</span>` : ''}
                     </div>
@@ -1719,19 +1718,24 @@ function startVoiceRecording() {
     recognition.onend = () => {
         console.log('🔴 Recognition ended. isRecording:', isRecording);
 
-        // ALWAYS process the transcript when recognition ends
+        // If still recording (user didn't click stop), restart recognition
+        if (isRecording) {
+            console.log('🔄 Auto-restarting recognition...');
+            recognition.start();
+            return;
+        }
+
+        // User clicked stop - process the transcript
         const transcript = document.getElementById('transcript-text').textContent.trim();
         console.log('📝 Transcript:', transcript);
 
         if (transcript) {
             console.log('✅ Processing transcript...');
-            isRecording = false; // Set to false BEFORE parsing
             parseVoiceText(transcript);
         } else {
             console.log('❌ No transcript found');
             document.getElementById('voice-status').textContent = 'לא נקלט טקסט. נסי שוב.';
             document.getElementById('voice-status').style.color = 'var(--text-secondary)';
-            isRecording = false;
             document.getElementById('voice-record-btn').classList.remove('recording');
         }
     };
@@ -1741,7 +1745,7 @@ function startVoiceRecording() {
 
 function stopVoiceRecording() {
     if (recognition) {
-        // DON'T set isRecording = false here! Let onend handle it
+        isRecording = false; // Set to false so onend knows user stopped it
         recognition.stop();
         document.getElementById('voice-record-btn').classList.remove('recording');
         document.getElementById('voice-status').textContent = 'עיבוד...';
@@ -1991,11 +1995,8 @@ function parseVoiceText(text) {
 
         scannedVoiceItems = items;
         console.log('✅ About to render items...');
-
-        document.getElementById('voice-status').textContent = '✅ סיימתי לעבד - בדקי למטה את הפרטים';
-        document.getElementById('voice-status').style.color = 'var(--success)';
-
-        console.log('✅ Waiting for user confirmation...');
+        renderVoiceItems();
+        console.log('✅ Render complete!');
 
     } catch (error) {
         console.error('❌ Error in parseVoiceText:', error);
@@ -2005,12 +2006,6 @@ function parseVoiceText(text) {
         isRecording = false;
         document.getElementById('voice-record-btn').classList.remove('recording');
     }
-}
-
-// Continue to voice items screen after reviewing debug info
-function continueToVoiceItems() {
-    console.log('✅ User confirmed, showing items...');
-    renderVoiceItems();
 }
 
 function renderVoiceItems() {

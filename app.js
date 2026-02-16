@@ -302,14 +302,8 @@ function renderShoppingList() {
         return;
     }
 
-    // Check if shopping mode is enabled
-    const isShoppingMode = document.getElementById('shopping-mode-toggle')?.checked;
-
-    if (isShoppingMode) {
-        renderShoppingListByCategory(items);
-    } else {
-        renderShoppingListFlat(items);
-    }
+    // Always render by category for better organization
+    renderShoppingListByCategory(items);
 }
 
 // Render flat list
@@ -416,7 +410,6 @@ function createShoppingItemCard(item) {
                 ${escapeHtml(item.name)}
             </div>
             <div class="item-meta">
-                <span class="item-category">${getCategoryEmoji(item.category)} ${getCategoryNameHebrew(item.category)}</span>
                 ${item.quantity > 1 ? `<span class="item-quantity">כמות: ${item.quantity}</span>` : ''}
                 ${!isShoppingMode && item.notes ? `<span>📝 ${escapeHtml(item.notes)}</span>` : ''}
             </div>
@@ -1962,18 +1955,64 @@ function parseVoiceText(text) {
             // Build regex to match Hebrew number words
             const numberWords = Object.keys(hebrewNumbers).join('|');
 
-            // Pattern: Look for (item name)(number or hebrew number)
-            // Match: "חלב 2" or "חלב שניים" or "2 חלב"
-            const regex = new RegExp(
-                `([א-ת\\s]+?)\\s+(\\d+|${numberWords})(?=\\s+[א-ת]|$)`,
-                'gi'
-            );
+            // Improved pattern: Look for sequences of Hebrew letters followed by a number
+            // This will match: "חסה 4" "עגבנייה שתיים" but NOT create overlaps
+            // We look for: [Hebrew word(s)] [number/hebrew-number] and then either space+Hebrew or end of string
+            const words = text.split(/\s+/);
+            let i = 0;
 
-            let match;
-            while ((match = regex.exec(text)) !== null) {
-                const itemPart = match[1].trim();
-                const quantityPart = match[2].trim();
-                segments.push(`${itemPart} ${quantityPart}`);
+            while (i < words.length) {
+                const word = words[i];
+
+                // Check if current word is a number
+                if (/^\d+(\.\d+)?$/.test(word)) {
+                    // Pattern: "number item" like "4 חסה"
+                    if (i + 1 < words.length && /^[א-ת]+$/.test(words[i + 1])) {
+                        segments.push(`${words[i + 1]} ${word}`);
+                        i += 2;
+                        continue;
+                    }
+                }
+
+                // Check if current word is a Hebrew number word
+                if (hebrewNumbers[word]) {
+                    // Pattern: "hebrew-number item" like "שתיים עגבנייה"
+                    if (i + 1 < words.length && /^[א-ת]+$/.test(words[i + 1])) {
+                        segments.push(`${words[i + 1]} ${word}`);
+                        i += 2;
+                        continue;
+                    }
+                }
+
+                // Check if this is a Hebrew word
+                if (/^[א-ת]+$/.test(word)) {
+                    // Look ahead for a number
+                    if (i + 1 < words.length) {
+                        const nextWord = words[i + 1];
+
+                        // Pattern: "item number" like "חסה 4"
+                        if (/^\d+(\.\d+)?$/.test(nextWord)) {
+                            segments.push(`${word} ${nextWord}`);
+                            i += 2;
+                            continue;
+                        }
+
+                        // Pattern: "item hebrew-number" like "חסה ארבע"
+                        if (hebrewNumbers[nextWord]) {
+                            segments.push(`${word} ${nextWord}`);
+                            i += 2;
+                            continue;
+                        }
+                    }
+
+                    // No number found, just add the item with quantity 1
+                    segments.push(word);
+                    i++;
+                    continue;
+                }
+
+                // Skip unknown patterns
+                i++;
             }
 
             console.log('📋 Smart split segments:', segments);

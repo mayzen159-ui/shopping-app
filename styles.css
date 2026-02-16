@@ -420,16 +420,17 @@ body.shopping-mode .item-actions {
     gap: 10px;
 }
 
-/* Category Headers for Shopping Mode */
+/* Category Headers - Always visible, styled for both modes */
 .category-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 16px 12px;
-    margin-top: 0;
+    padding: 12px 16px 10px;
+    margin-top: 16px;
     margin-bottom: 0;
-    background: linear-gradient(to bottom, var(--surface-elevated), var(--surface));
-    border-bottom: 2px solid var(--primary);
+    background: var(--surface-elevated);
+    border-bottom: 2px solid var(--border);
+    border-radius: 8px 8px 0 0;
     position: sticky;
     top: 0;
     z-index: 10;
@@ -440,22 +441,30 @@ body.shopping-mode .item-actions {
 }
 
 .category-header h3 {
-    font-size: 1.1rem;
-    font-weight: 700;
+    font-size: 1rem;
+    font-weight: 600;
     color: var(--text);
     margin: 0;
     letter-spacing: -0.01em;
 }
 
 .category-count {
-    background: var(--primary);
-    color: #000;
-    font-size: 0.85rem;
-    font-weight: 700;
+    background: var(--surface-hover);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 600;
     padding: 4px 10px;
     border-radius: 12px;
     min-width: 28px;
     text-align: center;
+}
+
+/* Enhanced styling for shopping mode */
+body.shopping-mode .category-header {
+    padding: 16px 16px 12px;
+    background: linear-gradient(to bottom, var(--surface-elevated), var(--surface));
+    border-bottom: 2px solid var(--primary);
+    margin-top: 0;
 }
 
 .category-items {
@@ -475,7 +484,8 @@ body.shopping-mode .category-count {
     padding: 5px 10px;
     background: var(--primary);
     border-radius: 12px;
-    color: white;
+    color: #000;
+    font-weight: 700;
 }
 
 .item-card {
@@ -552,12 +562,9 @@ body.shopping-mode .category-count {
     white-space: nowrap;
 }
 
+/* Item category badge - hidden since we use category headers */
 .item-category {
-    background: var(--surface-elevated);
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 500;
+    display: none;
 }
 
 .item-quantity {

@@ -107,7 +107,8 @@ function loadFromLocalStorage() {
             shoppingList: parsed.shoppingList || [],
             inventory: parsed.inventory || [],
             history: parsed.history || [],
-            learnedCategories: parsed.learnedCategories || {}
+            learnedCategories: parsed.learnedCategories || {},
+            groceryLists: parsed.groceryLists || [] // NEW: grocery lists
         };
         console.log('✅ נתונים נטענו מהמכשיר');
     } else {
@@ -127,7 +128,8 @@ function loadFromFirebase() {
                 shoppingList: data.shoppingList || [],
                 inventory: data.inventory || [],
                 history: data.history || [],
-                learnedCategories: data.learnedCategories || {}
+                learnedCategories: data.learnedCategories || {},
+                groceryLists: data.groceryLists || [] // NEW: grocery lists
             };
             console.log('☁️ נתונים התעדכנו מהענן');
             localStorage.setItem('couplesShoppingApp', JSON.stringify(appData));

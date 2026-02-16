@@ -1933,20 +1933,26 @@ function startVoiceRecording() {
         const debugLog = document.getElementById('debug-log');
         debugLog.innerHTML += `📥 Results: ${event.results.length}, Index: ${event.resultIndex}<br>`;
 
+        // FIXED: Don't accumulate, rebuild from ALL results each time
+        let newFinalTranscript = '';
         let interimTranscript = '';
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        // Loop through ALL results (not just new ones) to rebuild full text
+        for (let i = 0; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
             const isFinal = event.results[i].isFinal;
             console.log(`Result ${i}: "${transcript}", isFinal:`, isFinal);
             debugLog.innerHTML += `${i}: "${transcript}" (${isFinal ? 'FINAL' : 'interim'})<br>`;
 
             if (isFinal) {
-                finalTranscript += transcript + ' ';
+                newFinalTranscript += transcript + ' ';
             } else {
                 interimTranscript += transcript;
             }
         }
+
+        // Update finalTranscript with the rebuilt version (no accumulation!)
+        finalTranscript = newFinalTranscript;
 
         const fullText = finalTranscript + interimTranscript;
         console.log('📝 Full transcript so far:', fullText);

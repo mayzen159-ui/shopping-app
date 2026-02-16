@@ -2631,6 +2631,7 @@ function addSelectedToShoppingList() {
 let inventoryVoiceRecognition = null;
 let isInventoryVoiceRecording = false;
 let inventoryFullTranscript = '';
+let inventoryProcessedCount = 0; // Track how many results we've processed
 
 function openInventoryVoiceRecorder() {
     document.getElementById('inventory-voice-modal').classList.add('active');
@@ -2642,6 +2643,7 @@ function openInventoryVoiceRecorder() {
     document.getElementById('added-to-shopping-list').textContent = '';
     document.getElementById('inventory-voice-record-btn').classList.remove('recording');
     inventoryFullTranscript = '';
+    inventoryProcessedCount = 0; // Reset counter
 }
 
 function closeInventoryVoiceModal() {
@@ -2683,12 +2685,16 @@ function startInventoryVoiceRecording() {
     };
 
     inventoryVoiceRecognition.onresult = (event) => {
-        if (event.results.length > 0) {
-            const lastResult = event.results[event.results.length - 1];
-            const transcript = lastResult[0].transcript.trim();
-            const isFinal = lastResult.isFinal;
+        // MOBILE FIX: Only process NEW results, not accumulated ones
+        console.log(`📥 onresult: total ${event.results.length} results, processed ${inventoryProcessedCount}`);
 
-            console.log(`🎙️ Inventory Voice: "${transcript}", isFinal:`, isFinal);
+        // Process only new results
+        for (let i = inventoryProcessedCount; i < event.results.length; i++) {
+            const result = event.results[i];
+            const transcript = result[0].transcript.trim();
+            const isFinal = result.isFinal;
+
+            console.log(`🎙️ [${i}] "${transcript}", isFinal:`, isFinal);
 
             if (isFinal) {
                 // Check for "סיימתי" - stop recording
@@ -2698,15 +2704,18 @@ function startInventoryVoiceRecording() {
                     return;
                 }
 
-                // Add to full transcript
-                inventoryFullTranscript += ' ' + transcript;
+                // Add to full transcript (only once!)
+                inventoryFullTranscript += (inventoryFullTranscript ? ' ' : '') + transcript;
                 document.getElementById('inventory-transcript-text').textContent = inventoryFullTranscript;
 
                 // Process the command immediately
                 processInventoryVoiceCommand(transcript);
+
+                // Mark as processed
+                inventoryProcessedCount = i + 1;
             } else {
-                // Show interim result
-                document.getElementById('inventory-transcript-text').textContent = inventoryFullTranscript + ' ' + transcript;
+                // Show interim result (don't save it)
+                document.getElementById('inventory-transcript-text').textContent = inventoryFullTranscript + (inventoryFullTranscript ? ' ' : '') + transcript;
             }
         }
     };
@@ -2722,6 +2731,8 @@ function startInventoryVoiceRecording() {
         // If still recording, restart (continuous mode)
         if (isInventoryVoiceRecording) {
             try {
+                // Reset counter when restarting (new recognition session)
+                inventoryProcessedCount = 0;
                 inventoryVoiceRecognition.start();
             } catch (error) {
                 console.error('Failed to restart recognition:', error);

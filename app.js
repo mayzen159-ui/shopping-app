@@ -2661,6 +2661,8 @@ let inventoryVoiceRecognition = null;
 let isInventoryVoiceRecording = false;
 let inventoryFullTranscript = '';
 let inventoryProcessedCount = 0; // Track how many results we've processed
+let pendingInventoryItems = []; // Items waiting for confirmation
+let pendingShoppingItems = []; // Items to add to shopping list
 
 function openInventoryVoiceRecorder() {
     document.getElementById('inventory-voice-modal').classList.add('active');
@@ -2668,11 +2670,15 @@ function openInventoryVoiceRecorder() {
     document.getElementById('inventory-voice-transcript').style.display = 'none';
     document.getElementById('inventory-transcript-text').textContent = '';
     document.getElementById('inventory-voice-actions').style.display = 'none';
+    document.getElementById('inventory-pending-items').style.display = 'none';
     document.getElementById('added-to-inventory-list').textContent = '';
     document.getElementById('added-to-shopping-list').textContent = '';
     document.getElementById('inventory-voice-record-btn').classList.remove('recording');
+    document.getElementById('inventory-confirm-btn').style.display = 'none';
     inventoryFullTranscript = '';
     inventoryProcessedCount = 0; // Reset counter
+    pendingInventoryItems = [];
+    pendingShoppingItems = [];
 }
 
 function closeInventoryVoiceModal() {
@@ -2785,8 +2791,16 @@ function stopInventoryVoiceRecording() {
         inventoryVoiceRecognition.stop();
     }
     document.getElementById('inventory-voice-record-btn').classList.remove('recording');
-    document.getElementById('inventory-voice-status').textContent = 'ההקלטה הסתיימה ✅';
+    document.getElementById('inventory-voice-status').textContent = 'ההקלטה הסתיימה ✅ בדוק את הפריטים למטה';
     document.getElementById('inventory-voice-status').style.color = 'var(--success)';
+
+    // Show pending items for confirmation
+    if (pendingInventoryItems.length > 0 || pendingShoppingItems.length > 0) {
+        renderPendingInventoryItems();
+    } else {
+        document.getElementById('inventory-voice-status').textContent = 'לא זוהו פריטים. נסה שוב';
+        document.getElementById('inventory-voice-status').style.color = 'var(--warning)';
+    }
 }
 
 function processInventoryVoiceCommand(text) {
@@ -2803,7 +2817,12 @@ function processInventoryVoiceCommand(text) {
         console.log('✅ Parsed items:', items);
 
         if (items && items.length > 0) {
-            addItemsToInventoryFromVoice(items);
+            // Add to pending list (not immediately to inventory)
+            items.forEach(item => {
+                item.action = 'inventory'; // Mark where it should go
+                pendingInventoryItems.push(item);
+            });
+            renderPendingInventoryItems();
         } else {
             console.warn('⚠️ No items parsed from:', itemsText);
         }
@@ -2817,7 +2836,12 @@ function processInventoryVoiceCommand(text) {
         console.log('✅ Parsed items:', items);
 
         if (items && items.length > 0) {
-            addItemsToShoppingListFromVoice(items);
+            // Add to pending list (not immediately to shopping)
+            items.forEach(item => {
+                item.action = 'shopping'; // Mark where it should go
+                pendingShoppingItems.push(item);
+            });
+            renderPendingInventoryItems();
         } else {
             console.warn('⚠️ No items parsed from:', itemsText);
         }
@@ -2902,4 +2926,161 @@ function addItemsToShoppingListFromVoice(items) {
     shoppingList.textContent = addedItems.join(', ');
 
     console.log('🛒 Added to shopping list:', addedItems);
+}
+
+// Render pending items for confirmation
+function renderPendingInventoryItems() {
+    const container = document.getElementById('inventory-pending-list');
+    container.innerHTML = '';
+
+    const allPending = [...pendingInventoryItems, ...pendingShoppingItems];
+
+    if (allPending.length === 0) {
+        document.getElementById('inventory-pending-items').style.display = 'none';
+        document.getElementById('inventory-confirm-btn').style.display = 'none';
+        return;
+    }
+
+    // Show pending section
+    document.getElementById('inventory-pending-items').style.display = 'block';
+    document.getElementById('inventory-confirm-btn').style.display = 'inline-block';
+
+    allPending.forEach((item, index) => {
+        const itemCard = document.createElement('div');
+        itemCard.className = 'voice-item-card';
+
+        const actionIcon = item.action === 'inventory' ? '✅' : '🛒';
+        const actionText = item.action === 'inventory' ? 'למלאי' : 'לקניות';
+
+        itemCard.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="flex: 1;">
+                    <strong>${escapeHtml(item.name)}</strong>
+                    <span style="color: var(--text-secondary); margin-right: 10px;">
+                        כמות: ${item.quantity}
+                    </span>
+                    <span style="color: ${item.action === 'inventory' ? 'var(--success)' : 'var(--warning)'}; font-size: 0.85rem;">
+                        ${actionIcon} ${actionText}
+                    </span>
+                </div>
+            </div>
+        `;
+
+        container.appendChild(itemCard);
+    });
+}
+
+// Confirm and add items
+function confirmInventoryVoiceItems() {
+    console.log('✅ Confirming items...');
+    console.log('Inventory items:', pendingInventoryItems);
+    console.log('Shopping items:', pendingShoppingItems);
+
+    // Process inventory items with smart matching
+    const inventoryAdded = [];
+    pendingInventoryItems.forEach(item => {
+        // SMART MATCHING: Try to find existing item by plural/singular
+        const existingItem = findInventoryItemFlexible(item.name);
+
+        if (existingItem) {
+            existingItem.quantity += item.quantity;
+            existingItem.lastRestocked = new Date().toISOString();
+            console.log(`✅ Added ${item.quantity} to existing "${existingItem.name}"`);
+        } else {
+            appData.inventory.unshift({
+                id: Date.now() + Math.random(),
+                name: item.name,
+                category: item.category,
+                quantity: item.quantity,
+                minQuantity: 1,
+                expirationDate: '',
+                lastRestocked: new Date().toISOString(),
+                notes: 'נוסף בהקלטה חכמה'
+            });
+            console.log(`✅ Created new item "${item.name}"`);
+        }
+
+        // Remove from shopping list if exists
+        appData.shoppingList = appData.shoppingList.filter(s =>
+            s.name.toLowerCase() !== item.name.toLowerCase()
+        );
+
+        inventoryAdded.push(`${item.name} (${item.quantity})`);
+    });
+
+    // Process shopping items
+    const shoppingAdded = [];
+    pendingShoppingItems.forEach(item => {
+        const existing = appData.shoppingList.find(s =>
+            s.name.toLowerCase() === item.name.toLowerCase() && !s.purchased
+        );
+
+        if (existing) {
+            existing.quantity += item.quantity;
+        } else {
+            appData.shoppingList.push({
+                id: Date.now() + Math.random(),
+                name: item.name,
+                category: item.category,
+                quantity: item.quantity,
+                purchased: false,
+                addedBy: appData.settings.userName || 'קולי',
+                addedDate: new Date().toISOString(),
+                notes: '🎤 נוסף בהקלטה'
+            });
+        }
+
+        shoppingAdded.push(`${item.name} (${item.quantity})`);
+    });
+
+    saveData();
+    renderAll();
+
+    // Show results
+    document.getElementById('inventory-pending-items').style.display = 'none';
+    document.getElementById('inventory-confirm-btn').style.display = 'none';
+    document.getElementById('inventory-voice-actions').style.display = 'block';
+
+    if (inventoryAdded.length > 0) {
+        document.getElementById('added-to-inventory-list').textContent = inventoryAdded.join(', ');
+    } else {
+        document.getElementById('added-to-inventory-list').textContent = '-';
+    }
+
+    if (shoppingAdded.length > 0) {
+        document.getElementById('added-to-shopping-list').textContent = shoppingAdded.join(', ');
+    } else {
+        document.getElementById('added-to-shopping-list').textContent = '-';
+    }
+
+    // Clear pending
+    pendingInventoryItems = [];
+    pendingShoppingItems = [];
+
+    console.log('✅ Confirmation complete!');
+}
+
+// Smart inventory item finder - matches plural/singular
+function findInventoryItemFlexible(searchName) {
+    const searchLower = searchName.toLowerCase();
+
+    // Try exact match first
+    let found = appData.inventory.find(i => i.name.toLowerCase() === searchLower);
+    if (found) return found;
+
+    // Convert search term to singular
+    const searchSingular = hebrewPluralToSingular(searchName).toLowerCase();
+
+    // Try matching singular forms
+    for (const item of appData.inventory) {
+        const itemSingular = hebrewPluralToSingular(item.name).toLowerCase();
+
+        // Match if either singular forms are the same
+        if (itemSingular === searchSingular) {
+            console.log(`🔍 Matched "${searchName}" → "${item.name}" (via singular: "${itemSingular}")`);
+            return item;
+        }
+    }
+
+    return null;
 }

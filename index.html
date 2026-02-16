@@ -287,6 +287,15 @@
                         </p>
                     </div>
 
+                    <!-- Pending items for confirmation -->
+                    <div id="inventory-pending-items" style="margin-top: 20px; display: none;">
+                        <div style="padding: 15px; background: var(--surface-elevated); border-radius: 8px;">
+                            <p style="color: var(--text); font-weight: 600; margin-bottom: 10px;">📝 פריטים שזוהו:</p>
+                            <div id="inventory-pending-list" class="voice-items-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- Results after confirmation -->
                     <div id="inventory-voice-actions" style="margin-top: 20px; display: none;">
                         <div style="padding: 15px; background: var(--success-bg); border-radius: 8px; margin-bottom: 10px;">
                             <p style="color: var(--success); font-weight: 600; margin-bottom: 5px;">✅ התווסף למלאי:</p>
@@ -299,8 +308,9 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button class="btn-primary" onclick="closeInventoryVoiceModal()">סיום</button>
+            <div class="modal-footer" id="inventory-voice-footer">
+                <button class="btn-secondary" onclick="closeInventoryVoiceModal()">סגור</button>
+                <button class="btn-primary" id="inventory-confirm-btn" onclick="confirmInventoryVoiceItems()" style="display: none;">אשר והוסף</button>
             </div>
         </div>
     </div>
@@ -395,7 +405,7 @@
         </div>
     </div>
 
-    <script src="firebase-config.js?v=11"></script>
-    <script src="app.js?v=11"></script>
+    <script src="firebase-config.js?v=12"></script>
+    <script src="app.js?v=12"></script>
 </body>
 </html>

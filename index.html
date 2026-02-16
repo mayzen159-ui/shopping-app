@@ -93,6 +93,14 @@
                 </button>
             </div>
 
+            <!-- Voice Inventory Button -->
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button class="btn-voice" onclick="openInventoryVoiceRecorder()" style="flex: 1;">
+                    <i class="ph ph-microphone"></i>
+                    🎤 מצב פריקה חכם
+                </button>
+            </div>
+
             <div class="filter-section">
                 <select id="inventory-category-filter" onchange="renderInventory()">
                     <option value="">כל הקטגוריות</option>
@@ -245,6 +253,58 @@
         </div>
     </div>
 
+    <!-- Smart Inventory Voice Modal -->
+    <div id="inventory-voice-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button class="close-btn" onclick="closeInventoryVoiceModal()">&times;</button>
+                <h2>🎤 מצב פריקה חכם</h2>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: center; padding: 20px;">
+                    <div id="inventory-voice-status" style="font-size: 1.1rem; font-weight: 600; margin-bottom: 20px; color: var(--text-secondary);">
+                        לחץ על המיקרופון והתחל לדבר
+                    </div>
+
+                    <button id="inventory-voice-record-btn" class="btn-voice-record" onclick="toggleInventoryVoiceRecording()">
+                        <i class="ph ph-microphone" style="font-size: 3rem;"></i>
+                    </button>
+
+                    <div id="inventory-voice-transcript" style="margin-top: 20px; padding: 15px; background: var(--surface-elevated); border-radius: 8px; min-height: 100px; max-height: 300px; overflow-y: auto; text-align: right; direction: rtl; display: none;">
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 8px;">תמליל:</p>
+                        <p id="inventory-transcript-text" style="color: var(--text); font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;"></p>
+                    </div>
+
+                    <div style="margin-top: 20px; padding: 15px; background: var(--info-bg); border-radius: 8px; text-align: right;">
+                        <p style="font-weight: 600; margin-bottom: 10px; color: var(--info);">💡 פקודות חכמות:</p>
+                        <ul style="list-style: none; padding: 0; font-size: 0.9rem; color: var(--text-secondary);">
+                            <li style="margin: 5px 0;">✅ <strong>"יש לנו"</strong> + פריטים → הוסף למלאי</li>
+                            <li style="margin: 5px 0;">⚠️ <strong>"נגמר ה"</strong> או <strong>"חסר לנו"</strong> → הוסף לרשימת קניות</li>
+                            <li style="margin: 5px 0;">🛑 <strong>"סיימתי"</strong> → סגור הקלטה</li>
+                        </ul>
+                        <p style="margin-top: 10px; font-size: 0.85rem; color: var(--text-tertiary);">
+                            דוגמה: "יש לנו חלב 2 וביצים 10. נגמר לנו לחם וחומוס"
+                        </p>
+                    </div>
+
+                    <div id="inventory-voice-actions" style="margin-top: 20px; display: none;">
+                        <div style="padding: 15px; background: var(--success-bg); border-radius: 8px; margin-bottom: 10px;">
+                            <p style="color: var(--success); font-weight: 600; margin-bottom: 5px;">✅ התווסף למלאי:</p>
+                            <div id="added-to-inventory-list" style="color: var(--text); font-size: 0.9rem;"></div>
+                        </div>
+                        <div style="padding: 15px; background: var(--warning-bg); border-radius: 8px;">
+                            <p style="color: var(--warning); font-weight: 600; margin-bottom: 5px;">🛒 התווסף לרשימת קניות:</p>
+                            <div id="added-to-shopping-list" style="color: var(--text); font-size: 0.9rem;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeInventoryVoiceModal()">סיום</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Settings Modal -->
     <div id="settings-modal" class="modal">
         <div class="modal-content">
@@ -335,7 +395,7 @@
         </div>
     </div>
 
-    <script src="firebase-config.js?v=7"></script>
-    <script src="app.js?v=7"></script>
+    <script src="firebase-config.js?v=8"></script>
+    <script src="app.js?v=8"></script>
 </body>
 </html>

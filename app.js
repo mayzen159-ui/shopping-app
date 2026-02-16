@@ -2623,3 +2623,233 @@ function addSelectedToShoppingList() {
 
     alert(`✅ ${selectedItems.length} פריטים נוספו לרשימת הקניות!`);
 }
+
+// ============================================
+// SMART INVENTORY VOICE RECORDING
+// ============================================
+
+let inventoryVoiceRecognition = null;
+let isInventoryVoiceRecording = false;
+let inventoryFullTranscript = '';
+
+function openInventoryVoiceRecorder() {
+    document.getElementById('inventory-voice-modal').classList.add('active');
+    document.getElementById('inventory-voice-status').textContent = 'לחץ על המיקרופון והתחיל לדבר';
+    document.getElementById('inventory-voice-transcript').style.display = 'none';
+    document.getElementById('inventory-transcript-text').textContent = '';
+    document.getElementById('inventory-voice-actions').style.display = 'none';
+    document.getElementById('added-to-inventory-list').textContent = '';
+    document.getElementById('added-to-shopping-list').textContent = '';
+    document.getElementById('inventory-voice-record-btn').classList.remove('recording');
+    inventoryFullTranscript = '';
+}
+
+function closeInventoryVoiceModal() {
+    if (isInventoryVoiceRecording && inventoryVoiceRecognition) {
+        inventoryVoiceRecognition.stop();
+    }
+    document.getElementById('inventory-voice-modal').classList.remove('active');
+    isInventoryVoiceRecording = false;
+    inventoryFullTranscript = '';
+}
+
+function toggleInventoryVoiceRecording() {
+    if (!isInventoryVoiceRecording) {
+        startInventoryVoiceRecording();
+    } else {
+        stopInventoryVoiceRecording();
+    }
+}
+
+function startInventoryVoiceRecording() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        alert('הדפדפן שלך לא תומך בזיהוי קול. נסי Chrome או Edge.');
+        return;
+    }
+
+    inventoryVoiceRecognition = new SpeechRecognition();
+    inventoryVoiceRecognition.lang = 'he-IL';
+    inventoryVoiceRecognition.continuous = true;
+    inventoryVoiceRecognition.interimResults = true;
+
+    inventoryVoiceRecognition.onstart = () => {
+        isInventoryVoiceRecording = true;
+        document.getElementById('inventory-voice-record-btn').classList.add('recording');
+        document.getElementById('inventory-voice-status').textContent = '🎤 מקליט... דבר עכשיו';
+        document.getElementById('inventory-voice-status').style.color = 'var(--danger)';
+        document.getElementById('inventory-voice-transcript').style.display = 'block';
+    };
+
+    inventoryVoiceRecognition.onresult = (event) => {
+        if (event.results.length > 0) {
+            const lastResult = event.results[event.results.length - 1];
+            const transcript = lastResult[0].transcript.trim();
+            const isFinal = lastResult.isFinal;
+
+            console.log(`🎙️ Inventory Voice: "${transcript}", isFinal:`, isFinal);
+
+            if (isFinal) {
+                // Check for "סיימתי" - stop recording
+                if (transcript.toLowerCase().includes('סיימתי')) {
+                    console.log('🛑 Detected "סיימתי" - stopping...');
+                    stopInventoryVoiceRecording();
+                    return;
+                }
+
+                // Add to full transcript
+                inventoryFullTranscript += ' ' + transcript;
+                document.getElementById('inventory-transcript-text').textContent = inventoryFullTranscript;
+
+                // Process the command immediately
+                processInventoryVoiceCommand(transcript);
+            } else {
+                // Show interim result
+                document.getElementById('inventory-transcript-text').textContent = inventoryFullTranscript + ' ' + transcript;
+            }
+        }
+    };
+
+    inventoryVoiceRecognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+            alert('אין הרשאה להשתמש במיקרופון. אפשר גישה במיקרופון בהגדרות הדפדפן.');
+        }
+    };
+
+    inventoryVoiceRecognition.onend = () => {
+        // If still recording, restart (continuous mode)
+        if (isInventoryVoiceRecording) {
+            try {
+                inventoryVoiceRecognition.start();
+            } catch (error) {
+                console.error('Failed to restart recognition:', error);
+                isInventoryVoiceRecording = false;
+                document.getElementById('inventory-voice-record-btn').classList.remove('recording');
+            }
+        }
+    };
+
+    try {
+        inventoryVoiceRecognition.start();
+    } catch (error) {
+        console.error('Failed to start recognition:', error);
+        alert('שגיאה בהתחלת ההקלטה');
+    }
+}
+
+function stopInventoryVoiceRecording() {
+    isInventoryVoiceRecording = false;
+    if (inventoryVoiceRecognition) {
+        inventoryVoiceRecognition.stop();
+    }
+    document.getElementById('inventory-voice-record-btn').classList.remove('recording');
+    document.getElementById('inventory-voice-status').textContent = 'ההקלטה הסתיימה ✅';
+    document.getElementById('inventory-voice-status').style.color = 'var(--success)';
+}
+
+function processInventoryVoiceCommand(text) {
+    console.log('🧠 Processing command:', text);
+
+    const lowerText = text.toLowerCase();
+
+    // Check for "יש לנו" - ADD TO INVENTORY
+    if (lowerText.includes('יש לנו') || lowerText.includes('יש לי') || lowerText.includes('קניתי')) {
+        const itemsText = text.replace(/יש לנו|יש לי|קניתי/gi, '').trim();
+        const items = parseVoiceText(itemsText);
+
+        if (items.length > 0) {
+            addItemsToInventoryFromVoice(items);
+        }
+    }
+    // Check for "נגמר ה" or "חסר לנו" - ADD TO SHOPPING LIST
+    else if (lowerText.includes('נגמר') || lowerText.includes('חסר')) {
+        const itemsText = text.replace(/נגמר ה|נגמר|חסר לנו|חסר/gi, '').trim();
+        const items = parseVoiceText(itemsText);
+
+        if (items.length > 0) {
+            addItemsToShoppingListFromVoice(items);
+        }
+    }
+}
+
+function addItemsToInventoryFromVoice(items) {
+    const addedItems = [];
+
+    items.forEach(item => {
+        const existingItem = appData.inventory.find(i =>
+            i.name.toLowerCase() === item.name.toLowerCase()
+        );
+
+        if (existingItem) {
+            existingItem.quantity += item.quantity;
+            existingItem.lastRestocked = new Date().toISOString();
+        } else {
+            appData.inventory.unshift({
+                id: Date.now() + Math.random(),
+                name: item.name,
+                category: item.category,
+                quantity: item.quantity,
+                minQuantity: 1,
+                expirationDate: '',
+                lastRestocked: new Date().toISOString(),
+                notes: 'נוסף בהקלטה חכמה'
+            });
+        }
+
+        // Remove from shopping list if exists
+        appData.shoppingList = appData.shoppingList.filter(s =>
+            s.name.toLowerCase() !== item.name.toLowerCase()
+        );
+
+        addedItems.push(`${item.name} (${item.quantity})`);
+    });
+
+    saveData();
+    renderAll();
+
+    // Show in UI
+    document.getElementById('inventory-voice-actions').style.display = 'block';
+    const inventoryList = document.getElementById('added-to-inventory-list');
+    inventoryList.textContent = addedItems.join(', ');
+
+    console.log('✅ Added to inventory:', addedItems);
+}
+
+function addItemsToShoppingListFromVoice(items) {
+    const addedItems = [];
+
+    items.forEach(item => {
+        const existing = appData.shoppingList.find(s =>
+            s.name.toLowerCase() === item.name.toLowerCase() && !s.purchased
+        );
+
+        if (existing) {
+            existing.quantity += item.quantity;
+        } else {
+            appData.shoppingList.push({
+                id: Date.now() + Math.random(),
+                name: item.name,
+                category: item.category,
+                quantity: item.quantity,
+                purchased: false,
+                addedBy: appData.settings.userName || 'קולי',
+                addedDate: new Date().toISOString(),
+                notes: '🎤 נוסף בהקלטה'
+            });
+        }
+
+        addedItems.push(`${item.name} (${item.quantity})`);
+    });
+
+    saveData();
+    renderAll();
+
+    // Show in UI
+    document.getElementById('inventory-voice-actions').style.display = 'block';
+    const shoppingList = document.getElementById('added-to-shopping-list');
+    shoppingList.textContent = addedItems.join(', ');
+
+    console.log('🛒 Added to shopping list:', addedItems);
+}

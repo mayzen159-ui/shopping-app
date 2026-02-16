@@ -65,9 +65,35 @@ function loadData() {
         } else {
             loadFromLocalStorage();
         }
+
+        // Clean up old notes format
+        cleanupOldNotes();
     } catch (error) {
         console.error('שגיאה בטעינת נתונים:', error);
         loadFromLocalStorage();
+    }
+}
+
+// Clean up old "low stock (current X, minimum Y)" notes
+function cleanupOldNotes() {
+    let cleaned = false;
+
+    appData.shoppingList.forEach(item => {
+        if (item.notes && item.notes.includes('low stock (current')) {
+            // Replace old format with new format
+            const match = item.notes.match(/minimum[:\s]+(\d+)/);
+            if (match) {
+                const minimum = parseInt(match[1]);
+                const needToBuy = Math.max(1, minimum - (item.quantity || 0));
+                item.notes = `⚠️ קנה ${needToBuy} להגיע למינימום!`;
+                cleaned = true;
+            }
+        }
+    });
+
+    if (cleaned) {
+        saveData();
+        console.log('✅ Cleaned up old notes format');
     }
 }
 
@@ -1721,7 +1747,13 @@ function startVoiceRecording() {
         // If still recording (user didn't click stop), restart recognition
         if (isRecording) {
             console.log('🔄 Auto-restarting recognition...');
-            recognition.start();
+            try {
+                recognition.start();
+            } catch (error) {
+                console.error('Failed to restart recognition:', error);
+                isRecording = false;
+                document.getElementById('voice-record-btn').classList.remove('recording');
+            }
             return;
         }
 

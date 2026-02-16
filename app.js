@@ -2017,6 +2017,48 @@ function parseVoiceText(text) {
     debugLog.innerHTML += `<br>🔧 PARSING: "${text}"<br>`;
     debugLog.innerHTML += `Length: ${text.length}, Words: ${text.split(/\s+/).length}<br>`;
 
+    // MOBILE FIX: Clean up repeated text first
+    // "חסה חסה חסה 2" -> "חסה 2"
+    const words = text.split(/\s+/);
+    const cleanedWords = [];
+    let i = 0;
+
+    while (i < words.length) {
+        const word = words[i];
+
+        // If this is a number or Hebrew number word, just add it
+        if (/^\d+(\.\d+)?$/.test(word) || ['אחד', 'אחת', 'שני', 'שתי', 'שניים', 'שתיים', 'שלוש', 'שלושה', 'ארבע', 'ארבעה', 'חמש', 'חמישה', 'שש', 'שישה', 'שבע', 'שבעה', 'שמונה', 'תשע', 'תשעה', 'עשר', 'עשרה'].includes(word)) {
+            cleanedWords.push(word);
+            i++;
+            continue;
+        }
+
+        // If this is a Hebrew word, check if it's repeated ahead
+        if (/^[א-ת]+$/.test(word)) {
+            // Skip all consecutive duplicates of this word
+            let skipCount = 0;
+            while (i + skipCount + 1 < words.length && words[i + skipCount + 1] === word) {
+                skipCount++;
+            }
+
+            // Add the word only once
+            cleanedWords.push(word);
+            i += skipCount + 1;
+            continue;
+        }
+
+        // Otherwise just add the word
+        cleanedWords.push(word);
+        i++;
+    }
+
+    const cleanedText = cleanedWords.join(' ');
+    debugLog.innerHTML += `🧹 Cleaned: "${cleanedText}"<br>`;
+    console.log('🧹 Cleaned text:', cleanedText);
+
+    // Now parse the cleaned text
+    text = cleanedText;
+
     try {
         const items = [];
 

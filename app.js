@@ -1923,18 +1923,25 @@ function startVoiceRecording() {
         document.getElementById('voice-status').textContent = '🎤 מקליט... דבר עכשיו';
         document.getElementById('voice-status').style.color = 'var(--danger)';
         document.getElementById('voice-transcript').style.display = 'block';
+        document.getElementById('voice-debug').style.display = 'block';
+        document.getElementById('debug-log').innerHTML = '🎤 Recording started...<br>';
     };
 
     recognition.onresult = (event) => {
         console.log('🎙️ onresult triggered, event.results.length:', event.results.length);
 
+        const debugLog = document.getElementById('debug-log');
+        debugLog.innerHTML += `📥 Results: ${event.results.length}, Index: ${event.resultIndex}<br>`;
+
         let interimTranscript = '';
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
-            console.log(`Result ${i}: "${transcript}", isFinal:`, event.results[i].isFinal);
+            const isFinal = event.results[i].isFinal;
+            console.log(`Result ${i}: "${transcript}", isFinal:`, isFinal);
+            debugLog.innerHTML += `${i}: "${transcript}" (${isFinal ? 'FINAL' : 'interim'})<br>`;
 
-            if (event.results[i].isFinal) {
+            if (isFinal) {
                 finalTranscript += transcript + ' ';
             } else {
                 interimTranscript += transcript;
@@ -1943,7 +1950,11 @@ function startVoiceRecording() {
 
         const fullText = finalTranscript + interimTranscript;
         console.log('📝 Full transcript so far:', fullText);
+        debugLog.innerHTML += `📝 Full: "${fullText}"<br>`;
         document.getElementById('transcript-text').textContent = fullText;
+
+        // Auto-scroll debug log
+        debugLog.scrollTop = debugLog.scrollHeight;
     };
 
     recognition.onerror = (event) => {
@@ -1995,6 +2006,10 @@ function parseVoiceText(text) {
     console.log('📝 Starting parseVoiceText with:', text);
     console.log('📝 Text length:', text.length);
     console.log('📝 Text split by spaces:', text.split(/\s+/));
+
+    const debugLog = document.getElementById('debug-log');
+    debugLog.innerHTML += `<br>🔧 PARSING: "${text}"<br>`;
+    debugLog.innerHTML += `Length: ${text.length}, Words: ${text.split(/\s+/).length}<br>`;
 
     try {
         const items = [];
@@ -2079,8 +2094,10 @@ function parseVoiceText(text) {
             }
 
             console.log('📋 Smart split segments:', segments);
+            debugLog.innerHTML += `📋 Smart split: ${segments.length} segments<br>`;
         } else {
             console.log('📋 Comma-split segments:', segments);
+            debugLog.innerHTML += `📋 Comma split: ${segments.length} segments<br>`;
         }
 
         // If still no segments, fall back to the whole text
@@ -2180,6 +2197,11 @@ function parseVoiceText(text) {
         }
 
         console.log('🎯 Total items found:', items.length);
+        debugLog.innerHTML += `<br>✅ FOUND ${items.length} ITEMS:<br>`;
+        items.forEach((item, idx) => {
+            debugLog.innerHTML += `${idx + 1}. ${item.name} x${item.quantity}<br>`;
+        });
+        debugLog.scrollTop = debugLog.scrollHeight;
 
         if (items.length === 0) {
             alert('לא זוהו פריטים. נסי שוב ודבר בצורה ברורה יותר.\nדוגמה: "חלב 2, ביצים 10, גזר 3"');

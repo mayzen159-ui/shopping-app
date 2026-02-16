@@ -2360,6 +2360,12 @@ function renderGroceryLists() {
 
 // Create a new grocery list (from voice recording)
 function createGroceryListFromVoice(items) {
+    // SAFETY: Initialize groceryLists if it doesn't exist (for old users with cached code)
+    if (!appData.groceryLists) {
+        console.warn('⚠️ groceryLists was undefined, initializing...');
+        appData.groceryLists = [];
+    }
+
     const today = new Date().toISOString().split('T')[0];
 
     // Check if there's already a list for today

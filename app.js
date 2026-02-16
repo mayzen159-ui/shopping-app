@@ -1837,6 +1837,28 @@ function stopVoiceRecording() {
     }
 }
 
+// Helper function to convert plural Hebrew words to singular
+function hebrewPluralToSingular(word) {
+    // Common plural endings in Hebrew
+    const pluralPatterns = [
+        { pattern: /ים$/, replacement: '' },      // שזיפים -> שזיף, עגבנים -> עגבני
+        { pattern: /ות$/, replacement: 'ה' },     // חסות -> חסה, עגבניות -> עגבניה
+        { pattern: /יות$/, replacement: 'יה' },   // מלפפוניות -> מלפפוניה
+        { pattern: /אות$/, replacement: 'אה' }    // תפוזאות -> תפוזאה (rare)
+    ];
+
+    for (const {pattern, replacement} of pluralPatterns) {
+        if (pattern.test(word)) {
+            const singular = word.replace(pattern, replacement);
+            console.log(`🔄 Converted plural "${word}" → singular "${singular}"`);
+            return singular;
+        }
+    }
+
+    // If no plural pattern found, return as-is
+    return word;
+}
+
 function parseVoiceText(text) {
     console.log('📝 Starting parseVoiceText with:', text);
     console.log('📝 Text length:', text.length);
@@ -1866,8 +1888,9 @@ function parseVoiceText(text) {
                 skipCount++;
             }
 
-            // Add the word only once
-            cleanedWords.push(word);
+            // Convert plural to singular before adding
+            const singularWord = hebrewPluralToSingular(word);
+            cleanedWords.push(singularWord);
             i += skipCount + 1;
             continue;
         }
@@ -2069,7 +2092,7 @@ function parseVoiceText(text) {
         console.log('🎯 Total items found:', items.length);
 
         if (items.length === 0) {
-            alert('לא זוהו פריטים. נסי שוב ודבר בצורה ברורה יותר.\nדוגמה: "חלב 2, ביצים 10, גזר 3"');
+            alert('לא זוהו פריטים. נסי שוב ודבר בצורה ברורה יותר.\n\nדוגמאות:\n• "חלב 2, ביצים 10"\n• "4 חסות, 2 שזיפים"\n• "עגבניה 5 ומלפפון 3"');
             document.getElementById('voice-status').textContent = 'לחץ על המיקרופון והקלט את המוצרים שקנית';
             document.getElementById('voice-status').style.color = 'var(--text-secondary)';
             isRecording = false;

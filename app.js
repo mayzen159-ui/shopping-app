@@ -1383,8 +1383,9 @@ function downloadShoppingList() {
     content += '\n' + '═'.repeat(40) + '\n';
     content += `סה"כ פריטים: ${unpurchasedItems.length}\n`;
 
-    // Create and download file
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    // Create and download file with UTF-8 BOM for proper Hebrew display
+    const BOM = '\uFEFF'; // UTF-8 BOM (Byte Order Mark)
+    const blob = new Blob([BOM + content], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
     const filename = `רשימת-קניות-${new Date().toISOString().split('T')[0]}.txt`;
     link.href = URL.createObjectURL(blob);

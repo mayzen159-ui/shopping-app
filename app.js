@@ -521,58 +521,113 @@ function renderInventory() {
         container.innerHTML = `
             <div class="empty-state">
                 <i class="ph ph-package"></i>
-                <p>No items in inventory</p>
-                <p style="font-size: 0.9rem; margin-top: 10px;">Items will appear here when you check them off the shopping list</p>
+                <p>אין פריטים במלאי</p>
+                <p style="font-size: 0.9rem; margin-top: 10px;">פריטים יופיעו כאן כשתסמן אותם כנרכשו ברשימת הקניות</p>
             </div>
         `;
         return;
     }
 
+    // Render by category
+    renderInventoryByCategory(items);
+}
+
+// Render inventory by category
+function renderInventoryByCategory(items) {
+    const container = document.getElementById('inventory-list');
     container.innerHTML = '';
 
+    const categoryNames = {
+        'Produce': '🥬 ירקות ופירות',
+        'Dairy': '🥛 חלב וביצים',
+        'Meat': '🥩 בשר ודגים',
+        'Pantry': '🥫 מזווה',
+        'Canned': '🥫 שימורים',
+        'Sauces': '🍯 רטבים וממרחים',
+        'Oils': '🫒 שמנים',
+        'Frozen': '🧊 קפואים',
+        'Bakery': '🍞 לחמים ומאפים',
+        'Beverages': '🥤 משקאות',
+        'Snacks': '🍿 חטיפים',
+        'Household': '🧹 ניקיון ובית',
+        'Personal': '🧴 טיפוח אישי',
+        'Other': '📦 אחר'
+    };
+
+    // Group by category
+    const categorized = {};
     items.forEach(item => {
-        const isLowStock = item.quantity <= item.minQuantity;
+        if (!categorized[item.category]) {
+            categorized[item.category] = [];
+        }
+        categorized[item.category].push(item);
+    });
 
-        const card = document.createElement('div');
-        card.className = 'item-card' + (isLowStock ? ' low-stock' : '');
+    // Render each category
+    Object.keys(categorized).sort().forEach(category => {
+        const categoryItems = categorized[category];
+        if (categoryItems.length === 0) return;
 
-        const isExpired = item.expirationDate && new Date(item.expirationDate) < new Date();
-        const daysUntilExpiry = item.expirationDate ? Math.ceil((new Date(item.expirationDate) - new Date()) / (1000 * 60 * 60 * 24)) : null;
-
-        card.innerHTML = `
-            <div class="item-info" style="flex: 1;">
-                <div class="item-name">
-                    ${escapeHtml(item.name)}
-                    ${isLowStock ? ' ⚠️' : ''}
-                    ${isExpired ? ' 🚫' : daysUntilExpiry !== null && daysUntilExpiry <= 3 ? ' ⏰' : ''}
-                </div>
-                <div class="item-meta">
-                    <span class="item-category">${getCategoryEmoji(item.category)} ${getCategoryNameHebrew(item.category)}</span>
-                    <span class="item-quantity">כמות: ${item.quantity}</span>
-                    <span style="color: var(--text-secondary); cursor: pointer;" onclick="quickEditMinQuantity(${item.id})" title="לחץ לשינוי מינימום">
-                        מינימום: ${item.minQuantity || 1} 🔧
-                    </span>
-                    ${isExpired ? '<span style="color: var(--danger); font-weight: 600;">🚫 פג תוקף</span>' : daysUntilExpiry !== null && daysUntilExpiry <= 3 ? `<span style="color: var(--warning); font-weight: 600;">⏰ פג תוקף בעוד ${daysUntilExpiry} ${daysUntilExpiry === 1 ? 'יום' : 'ימים'}</span>` : item.expirationDate ? `<span style="color: var(--text-tertiary);">📅 תפוגה: ${formatDate(item.expirationDate)}</span>` : ''}
-                    ${item.notes ? `<span>📝 ${escapeHtml(item.notes)}</span>` : ''}
-                </div>
-            </div>
-            <div class="item-actions">
-                <button class="btn-icon" onclick="adjustQuantity(${item.id}, -1)" title="Decrease">
-                    <i class="ph ph-minus"></i>
-                </button>
-                <button class="btn-icon" onclick="adjustQuantity(${item.id}, 1)" title="Increase">
-                    <i class="ph ph-plus"></i>
-                </button>
-                <button class="btn-icon" onclick="editItem(${item.id}, 'inventory')" title="Edit Details">
-                    <i class="ph ph-pencil-simple"></i>
-                </button>
-                <button class="btn-icon danger" onclick="deleteInventoryItem(${item.id})" title="Delete">
-                    <i class="ph ph-trash"></i>
-                </button>
-            </div>
+        const header = document.createElement('div');
+        header.className = 'category-header';
+        header.innerHTML = `
+            <h3>${categoryNames[category] || category}</h3>
+            <span class="category-count">${categoryItems.length}</span>
         `;
+        container.appendChild(header);
 
-        container.appendChild(card);
+        const itemsDiv = document.createElement('div');
+        itemsDiv.className = 'category-items';
+
+        categoryItems.forEach(item => {
+            const isLowStock = item.quantity <= item.minQuantity;
+
+            const card = document.createElement('div');
+            card.className = 'item-card' + (isLowStock ? ' low-stock' : '');
+
+            const isExpired = item.expirationDate && new Date(item.expirationDate) < new Date();
+            const daysUntilExpiry = item.expirationDate ? Math.ceil((new Date(item.expirationDate) - new Date()) / (1000 * 60 * 60 * 24)) : null;
+
+            // Calculate how many to buy if low stock
+            const needToBuy = isLowStock ? Math.ceil((item.minQuantity || 1) - item.quantity) : 0;
+
+            card.innerHTML = `
+                <div class="item-info" style="flex: 1;">
+                    <div class="item-name">
+                        ${escapeHtml(item.name)}
+                        ${isLowStock ? ' ⚠️' : ''}
+                        ${isExpired ? ' 🚫' : daysUntilExpiry !== null && daysUntilExpiry <= 3 ? ' ⏰' : ''}
+                    </div>
+                    <div class="item-meta">
+                        <span class="item-quantity">כמות: ${item.quantity}</span>
+                        <span style="color: var(--text-secondary); cursor: pointer;" onclick="quickEditMinQuantity(${item.id})" title="לחץ לשינוי מינימום">
+                            מינימום: ${item.minQuantity || 1} 🔧
+                        </span>
+                        ${isLowStock ? `<span style="color: var(--warning); font-weight: 600;">⚠️ קנה ${needToBuy} להגיע למינימום!</span>` : ''}
+                        ${isExpired ? '<span style="color: var(--danger); font-weight: 600;">🚫 פג תוקף</span>' : daysUntilExpiry !== null && daysUntilExpiry <= 3 ? `<span style="color: var(--warning); font-weight: 600;">⏰ פג תוקף בעוד ${daysUntilExpiry} ${daysUntilExpiry === 1 ? 'יום' : 'ימים'}</span>` : item.expirationDate ? `<span style="color: var(--text-tertiary);">📅 תפוגה: ${formatDate(item.expirationDate)}</span>` : ''}
+                        ${item.notes ? `<span>📝 ${escapeHtml(item.notes)}</span>` : ''}
+                    </div>
+                </div>
+                <div class="item-actions">
+                    <button class="btn-icon" onclick="adjustQuantity(${item.id}, -1)" title="הקטן">
+                        <i class="ph ph-minus"></i>
+                    </button>
+                    <button class="btn-icon" onclick="adjustQuantity(${item.id}, 1)" title="הגדל">
+                        <i class="ph ph-plus"></i>
+                    </button>
+                    <button class="btn-icon" onclick="editItem(${item.id}, 'inventory')" title="עריכה">
+                        <i class="ph ph-pencil-simple"></i>
+                    </button>
+                    <button class="btn-icon danger" onclick="deleteInventoryItem(${item.id})" title="מחיקה">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                </div>
+            `;
+
+            itemsDiv.appendChild(card);
+        });
+
+        container.appendChild(itemsDiv);
     });
 }
 
@@ -600,7 +655,7 @@ function adjustQuantity(itemId, delta) {
                 purchased: false,
                 addedBy: 'Auto',
                 addedDate: new Date().toISOString(),
-                notes: `מלאי נמוך (נוכחי: ${item.quantity}, מינימום: ${item.minQuantity || 1})`
+                notes: `⚠️ קנה ${Math.ceil((item.minQuantity || 1) - item.quantity)} להגיע למינימום!`
             });
         }
     }
@@ -643,7 +698,7 @@ function quickEditMinQuantity(itemId) {
                 purchased: false,
                 addedBy: 'Auto',
                 addedDate: new Date().toISOString(),
-                notes: `מלאי נמוך (מתחת למינימום: ${newMin})`
+                notes: `⚠️ קנה ${Math.ceil(newMin - item.quantity)} להגיע למינימום!`
             });
             alert(`${item.name} נוסף לרשימת הקניות (מלאי נוכחי: ${item.quantity}, מינימום: ${newMin})`);
         }
@@ -826,7 +881,7 @@ function checkLowStockItems() {
                     purchased: false,
                     addedBy: 'Auto',
                     addedDate: new Date().toISOString(),
-                    notes: `מלאי נמוך (נוכחי: ${item.quantity}, מינימום: ${item.minQuantity || 1})`
+                    notes: `⚠️ קנה ${Math.ceil((item.minQuantity || 1) - item.quantity)} להגיע למינימום!`
                 });
                 lowStockCount++;
             }
@@ -1871,10 +1926,14 @@ function startVoiceRecording() {
     };
 
     recognition.onresult = (event) => {
+        console.log('🎙️ onresult triggered, event.results.length:', event.results.length);
+
         let interimTranscript = '';
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
+            console.log(`Result ${i}: "${transcript}", isFinal:`, event.results[i].isFinal);
+
             if (event.results[i].isFinal) {
                 finalTranscript += transcript + ' ';
             } else {
@@ -1882,7 +1941,9 @@ function startVoiceRecording() {
             }
         }
 
-        document.getElementById('transcript-text').textContent = finalTranscript + interimTranscript;
+        const fullText = finalTranscript + interimTranscript;
+        console.log('📝 Full transcript so far:', fullText);
+        document.getElementById('transcript-text').textContent = fullText;
     };
 
     recognition.onerror = (event) => {
@@ -1932,6 +1993,8 @@ function stopVoiceRecording() {
 
 function parseVoiceText(text) {
     console.log('📝 Starting parseVoiceText with:', text);
+    console.log('📝 Text length:', text.length);
+    console.log('📝 Text split by spaces:', text.split(/\s+/));
 
     try {
         const items = [];

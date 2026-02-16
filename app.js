@@ -62,70 +62,83 @@ function loadData() {
     try {
         if (typeof isFirebaseEnabled !== 'undefined' && isFirebaseEnabled) {
             loadFromFirebase();
+            // Note: cleanupOldNotes() is now called inside loadFromFirebase() callback
         } else {
             loadFromLocalStorage();
+            // Clean up old notes format for localStorage
+            cleanupOldNotes();
         }
-
-        // Clean up old notes format
-        cleanupOldNotes();
     } catch (error) {
         console.error('שגיאה בטעינת נתונים:', error);
         loadFromLocalStorage();
+        cleanupOldNotes();
     }
 }
 
 // Clean up old "low stock" notes and convert to new format
 function cleanupOldNotes() {
-    let cleaned = false;
+    console.log('🧹 Starting cleanup of old note formats...');
+    let cleaned = 0;
 
     appData.shoppingList.forEach(item => {
         if (!item.notes) return;
 
-        let hasOldFormat = false;
-        let needToBuy = 1;
+        const originalNote = item.notes;
 
-        // Check for old English format (case insensitive): "low stock (current X, minimum Y)"
-        if (item.notes.toLowerCase().includes('low stock')) {
-            hasOldFormat = true;
-            const match = item.notes.match(/minimum[:\s]+(\d+)/i);
-            if (match) {
-                const minimum = parseInt(match[1]);
-                const currentMatch = item.notes.match(/current[:\s]+(\d+)/i);
+        // If already in perfect format, skip
+        if (/^⚠️ קנה \d+ להגיע למינימום!$/.test(item.notes)) {
+            return; // Already clean
+        }
+
+        let needToBuy = 1;
+        const noteLower = item.notes.toLowerCase();
+
+        // Check for old English format (case insensitive): "low stock (current: X, minimum: Y)"
+        if (noteLower.includes('low stock')) {
+            const minimumMatch = item.notes.match(/minimum[:\s]+(\d+)/i);
+            const currentMatch = item.notes.match(/current[:\s]+(\d+)/i);
+
+            if (minimumMatch) {
+                const minimum = parseInt(minimumMatch[1]);
                 const current = currentMatch ? parseInt(currentMatch[1]) : 0;
                 needToBuy = Math.max(1, minimum - current);
             }
+
+            item.notes = `⚠️ קנה ${needToBuy} להגיע למינימום!`;
+            cleaned++;
+            console.log(`🔧 [${item.name}] "${originalNote}" → "${item.notes}"`);
+            return;
         }
 
         // Check for old Hebrew format: "מלאי נמוך"
         if (item.notes.includes('מלאי נמוך')) {
-            hasOldFormat = true;
             const match = item.notes.match(/(\d+)/);
             if (match) {
                 needToBuy = parseInt(match[1]);
             }
+            item.notes = `⚠️ קנה ${needToBuy} להגיע למינימום!`;
+            cleaned++;
+            console.log(`🔧 [${item.name}] "${originalNote}" → "${item.notes}"`);
+            return;
         }
 
-        // If we found old format, replace with clean new format
-        if (hasOldFormat) {
-            item.notes = `⚠️ קנה ${needToBuy} להגיע למינימום!`;
-            cleaned = true;
-            console.log(`🔧 Cleaned note for ${item.name}: "${item.notes}"`);
-        }
-        // If note already has new format but ALSO contains old text mixed in
-        else if (item.notes.includes('⚠️ קנה') && item.notes.length > 30) {
-            // Extract only the new format part (it should be short)
-            const match = item.notes.match(/⚠️ קנה \d+ להגיע למינימום!/);
+        // If note is suspiciously long (probably mixed format), clean it
+        if (item.notes.length > 35) {
+            const match = item.notes.match(/(\d+)/);
             if (match) {
-                item.notes = match[0];
-                cleaned = true;
-                console.log(`🔧 Extracted clean note for ${item.name}: "${item.notes}"`);
+                needToBuy = parseInt(match[1]);
             }
+            item.notes = `⚠️ קנה ${needToBuy} להגיע למינימום!`;
+            cleaned++;
+            console.log(`🔧 [${item.name}] Long note cleaned: "${originalNote}" → "${item.notes}"`);
         }
     });
 
-    if (cleaned) {
+    if (cleaned > 0) {
         saveData();
-        console.log('✅ Cleaned up old notes format');
+        console.log(`✅ Successfully cleaned ${cleaned} old note(s)`);
+    } else {
+        console.log('ℹ️ No old format notes found - all clean!');
     }
 }
 
@@ -164,6 +177,10 @@ function loadFromFirebase() {
                 groceryLists: data.groceryLists || [] // NEW: grocery lists
             };
             console.log('☁️ נתונים התעדכנו מהענן');
+
+            // Clean up old notes AFTER data is loaded
+            cleanupOldNotes();
+
             localStorage.setItem('couplesShoppingApp', JSON.stringify(appData));
             renderAll();
         } else {

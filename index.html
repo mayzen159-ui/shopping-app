@@ -34,9 +34,9 @@
                 מלאי
                 <span class="badge" id="inventory-count">0</span>
             </button>
-            <button class="tab-btn" data-tab="statistics" onclick="switchTab('statistics')">
-                <i class="ph ph-chart-line"></i>
-                סטטיסטיקות
+            <button class="tab-btn" data-tab="history" onclick="switchTab('history')">
+                <i class="ph ph-receipt"></i>
+                רשימות קודמות
             </button>
         </nav>
 
@@ -119,9 +119,15 @@
             <div id="inventory-list" class="items-list"></div>
         </div>
 
-        <!-- Statistics Tab -->
-        <div class="tab-content" id="statistics-tab">
-            <div id="statistics-content" class="statistics-content"></div>
+        <!-- History Tab - Previous Shopping Lists -->
+        <div class="tab-content" id="history-tab">
+            <div class="add-item-section">
+                <button class="btn-primary" onclick="createNewGroceryList()" style="width: 100%;">
+                    <i class="ph ph-plus-circle"></i>
+                    צור רשימת קניות חדשה
+                </button>
+            </div>
+            <div id="grocery-lists-container"></div>
         </div>
     </div>
 
@@ -295,6 +301,36 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-primary" onclick="saveSettings()">שמור</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grocery List Detail Modal -->
+    <div id="grocery-list-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button class="close-btn" onclick="closeGroceryListModal()">&times;</button>
+                <h2 id="grocery-list-title">רשימת קניות</h2>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>שם סופרמרקט</label>
+                    <input type="text" id="grocery-list-store" placeholder="למשל: שופרסל, רמי לוי...">
+                </div>
+                <hr>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>פריטים</h3>
+                    <button class="btn-secondary" onclick="addItemToGroceryList()">
+                        <i class="ph ph-plus"></i> הוסף פריט
+                    </button>
+                </div>
+                <div id="grocery-list-items"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeGroceryListModal()">סגור</button>
+                <button class="btn-primary" onclick="addSelectedToShoppingList()">
+                    <i class="ph ph-shopping-cart"></i> הוסף מסומנים לרשימת קניות
+                </button>
             </div>
         </div>
     </div>

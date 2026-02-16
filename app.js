@@ -7,7 +7,8 @@ let appData = {
     shoppingList: [],
     inventory: [],
     history: [],
-    learnedCategories: {} // Store user's category choices
+    learnedCategories: {}, // Store user's category choices
+    groceryLists: [] // New: store previous grocery lists by date
 };
 
 let currentEditingItem = null;
@@ -195,7 +196,7 @@ function renderAll() {
     syncCategoriesFromInventory(); // Sync before rendering
     renderShoppingList();
     renderInventory();
-    renderStatistics();
+    renderGroceryLists();
     updateCounts();
 }
 
@@ -222,9 +223,9 @@ function switchTab(tabName) {
     });
     document.getElementById(`${tabName}-tab`).classList.add('active');
 
-    // Render statistics when switching to that tab
-    if (tabName === 'statistics') {
-        renderStatistics();
+    // Render history tab when switching to it
+    if (tabName === 'history') {
+        renderGroceryLists();
     }
 }
 
@@ -1105,256 +1106,6 @@ function clearHistoryFilter() {
 }
 
 // Render statistics
-function renderStatistics() {
-    const container = document.getElementById('statistics-content');
-
-    if (!container) return;
-
-    const history = appData.history || [];
-    const inventory = appData.inventory || [];
-
-    if (history.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="ph ph-chart-line"></i>
-                <p>אין מספיק נתונים להצגת סטטיסטיקות</p>
-                <p style="font-size: 0.85rem; margin-top: 8px;">התחל לסמן פריטים כנרכשו כדי לראות סטטיסטיקות</p>
-            </div>
-        `;
-        return;
-    }
-
-    // 1. Top 10 most purchased items
-    const itemCounts = {};
-    history.forEach(item => {
-        itemCounts[item.name] = (itemCounts[item.name] || 0) + item.quantity;
-    });
-    const topItems = Object.entries(itemCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10);
-
-    // 2. Purchases by user
-    const userPurchases = {};
-    history.forEach(item => {
-        const user = item.purchasedBy || 'לא ידוע';
-        userPurchases[user] = (userPurchases[user] || 0) + 1;
-    });
-
-    // 3. Category breakdown
-    const categoryCount = {};
-    history.forEach(item => {
-        categoryCount[item.category] = (categoryCount[item.category] || 0) + 1;
-    });
-    const topCategories = Object.entries(categoryCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5);
-
-    // 4. Items expiring soon (within 7 days)
-    const today = new Date();
-    const expiringItems = inventory.filter(item => {
-        if (!item.expirationDate) return false;
-        const expiryDate = new Date(item.expirationDate);
-        const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-        return daysUntilExpiry > 0 && daysUntilExpiry <= 7;
-    }).sort((a, b) => new Date(a.expirationDate) - new Date(b.expirationDate));
-
-    // 5. Low stock items
-    const lowStockItems = inventory.filter(item => item.quantity <= (item.minQuantity || 1));
-
-    // 6. Recent activity (last 7 days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recentPurchases = history.filter(item => new Date(item.purchasedDate) > sevenDaysAgo);
-
-    // Build HTML
-    let html = '<div class="statistics-grid">';
-
-    // Card 1: Total purchases
-    html += `
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(255, 107, 53, 0.1); color: var(--primary);">
-                <i class="ph ph-shopping-cart"></i>
-            </div>
-            <div class="stat-info">
-                <div class="stat-label">סך הכל קניות</div>
-                <div class="stat-value">${history.length}</div>
-            </div>
-        </div>
-    `;
-
-    // Card 2: Recent activity
-    html += `
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(46, 196, 182, 0.1); color: var(--secondary);">
-                <i class="ph ph-clock"></i>
-            </div>
-            <div class="stat-info">
-                <div class="stat-label">קניות ב-7 ימים אחרונים</div>
-                <div class="stat-value">${recentPurchases.length}</div>
-            </div>
-        </div>
-    `;
-
-    // Card 3: Items in inventory
-    html += `
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--success);">
-                <i class="ph ph-package"></i>
-            </div>
-            <div class="stat-info">
-                <div class="stat-label">פריטים במלאי</div>
-                <div class="stat-value">${inventory.length}</div>
-            </div>
-        </div>
-    `;
-
-    // Card 4: Low stock
-    html += `
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(245, 205, 71, 0.1); color: var(--warning);">
-                <i class="ph ph-warning"></i>
-            </div>
-            <div class="stat-info">
-                <div class="stat-label">מלאי נמוך</div>
-                <div class="stat-value">${lowStockItems.length}</div>
-            </div>
-        </div>
-    `;
-
-    html += '</div>';
-
-    // Top 10 most purchased items
-    html += `
-        <div class="stat-section">
-            <h3 class="stat-section-title">
-                <i class="ph ph-trophy"></i>
-                הפריטים הנקנים ביותר
-            </h3>
-            <div class="stat-list">
-    `;
-
-    topItems.forEach((item, index) => {
-        const [name, count] = item;
-        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
-        html += `
-            <div class="stat-list-item">
-                <span class="stat-rank">${medal || (index + 1)}</span>
-                <span class="stat-item-name">${escapeHtml(name)}</span>
-                <span class="stat-item-count">${count} פעמים</span>
-            </div>
-        `;
-    });
-
-    html += '</div></div>';
-
-    // Purchases by user
-    if (Object.keys(userPurchases).length > 0) {
-        html += `
-            <div class="stat-section">
-                <h3 class="stat-section-title">
-                    <i class="ph ph-users"></i>
-                    קניות לפי משתמש
-                </h3>
-                <div class="stat-list">
-        `;
-
-        Object.entries(userPurchases)
-            .sort((a, b) => b[1] - a[1])
-            .forEach(([user, count]) => {
-                const percentage = Math.round((count / history.length) * 100);
-                html += `
-                    <div class="stat-list-item">
-                        <span class="stat-item-name">${escapeHtml(user)}</span>
-                        <div class="stat-progress-bar">
-                            <div class="stat-progress-fill" style="width: ${percentage}%"></div>
-                        </div>
-                        <span class="stat-item-count">${count} (${percentage}%)</span>
-                    </div>
-                `;
-            });
-
-        html += '</div></div>';
-    }
-
-    // Top categories
-    html += `
-        <div class="stat-section">
-            <h3 class="stat-section-title">
-                <i class="ph ph-tag"></i>
-                קטגוריות פופולריות
-            </h3>
-            <div class="stat-list">
-    `;
-
-    topCategories.forEach(([category, count]) => {
-        const percentage = Math.round((count / history.length) * 100);
-        html += `
-            <div class="stat-list-item">
-                <span class="stat-item-name">${getCategoryEmoji(category)} ${getCategoryNameHebrew(category)}</span>
-                <div class="stat-progress-bar">
-                    <div class="stat-progress-fill" style="width: ${percentage}%"></div>
-                </div>
-                <span class="stat-item-count">${count} (${percentage}%)</span>
-            </div>
-        `;
-    });
-
-    html += '</div></div>';
-
-    // Expiring items
-    if (expiringItems.length > 0) {
-        html += `
-            <div class="stat-section stat-alert">
-                <h3 class="stat-section-title">
-                    <i class="ph ph-warning-circle"></i>
-                    פריטים שעומדים לפוג (7 ימים)
-                </h3>
-                <div class="stat-list">
-        `;
-
-        expiringItems.forEach(item => {
-            const expiryDate = new Date(item.expirationDate);
-            const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-            html += `
-                <div class="stat-list-item">
-                    <span class="stat-item-name">${escapeHtml(item.name)}</span>
-                    <span class="stat-item-count" style="color: var(--warning);">
-                        ${daysUntilExpiry} ${daysUntilExpiry === 1 ? 'יום' : 'ימים'}
-                    </span>
-                </div>
-            `;
-        });
-
-        html += '</div></div>';
-    }
-
-    // Low stock items
-    if (lowStockItems.length > 0) {
-        html += `
-            <div class="stat-section stat-alert">
-                <h3 class="stat-section-title">
-                    <i class="ph ph-package"></i>
-                    מלאי נמוך
-                </h3>
-                <div class="stat-list">
-        `;
-
-        lowStockItems.forEach(item => {
-            html += `
-                <div class="stat-list-item">
-                    <span class="stat-item-name">${escapeHtml(item.name)}</span>
-                    <span class="stat-item-count" style="color: var(--warning);">
-                        ${item.quantity} / ${item.minQuantity}
-                    </span>
-                </div>
-            `;
-        });
-
-        html += '</div></div>';
-    }
-
-    container.innerHTML = html;
-}
 
 // Edit item
 function editItem(itemId, type) {
@@ -2409,11 +2160,19 @@ function addVoiceItemsToInventory() {
         addedCount++;
     });
 
+    // Also add to grocery list history
+    const itemsForHistory = scannedVoiceItems.map(item => ({
+        id: Date.now() + Math.random(),
+        name: item.name,
+        quantity: item.quantity
+    }));
+    createGroceryListFromVoice(itemsForHistory);
+
     saveData();
     renderAll();
     closeVoiceModal();
 
-    alert(`✅ ${addedCount} פריטים נוספו למלאי!`);
+    alert(`✅ ${addedCount} פריטים נוספו למלאי ולרשימות הקודמות!`);
 
     // Switch to inventory tab
     switchTab('inventory');
@@ -2509,4 +2268,273 @@ function loadSampleData() {
     console.log(`📈 היסטוריה: ${appData.history.length} רכישות`);
 
     alert('✅ נתוני דוגמה נטענו בהצלחה!\n\nכעת תוכלי לראות:\n• 5 פריטים ברשימת הקניות\n• 10 פריטים במלאי\n• 100+ רכישות בהיסטוריה\n• סטטיסטיקות מלאות');
+}
+
+// ============================================
+// GROCERY LISTS (Previous Shopping Lists)
+// ============================================
+
+// Render grocery lists by date
+function renderGroceryLists() {
+    const container = document.getElementById('grocery-lists-container');
+
+    if (!appData.groceryLists || appData.groceryLists.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="ph ph-receipt"></i>
+                <p>אין רשימות קודמות</p>
+                <p style="font-size: 0.9rem; margin-top: 10px;">רשימות מהקלטות קוליות יופיעו כאן</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Sort by date (newest first)
+    const sortedLists = [...appData.groceryLists].sort((a, b) =>
+        new Date(b.date) - new Date(a.date)
+    );
+
+    container.innerHTML = '';
+
+    sortedLists.forEach(list => {
+        const card = document.createElement('div');
+        card.className = 'grocery-list-card';
+        card.onclick = () => openGroceryListDetail(list.id);
+
+        const date = new Date(list.date);
+        const dateStr = date.toLocaleDateString('he-IL', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        card.innerHTML = `
+            <div class="grocery-list-header">
+                <div>
+                    <h3>${dateStr}</h3>
+                    ${list.storeName ? `<p class="store-name">🏪 ${escapeHtml(list.storeName)}</p>` : ''}
+                </div>
+                <div class="grocery-list-count">${list.items.length} פריטים</div>
+            </div>
+            <div class="grocery-list-preview">
+                ${list.items.slice(0, 3).map(item =>
+                    `<span class="preview-item">${escapeHtml(item.name)} x${item.quantity}</span>`
+                ).join('')}
+                ${list.items.length > 3 ? `<span class="preview-more">+${list.items.length - 3} עוד</span>` : ''}
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+// Create a new grocery list (from voice recording)
+function createGroceryListFromVoice(items) {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Check if there's already a list for today
+    let existingList = appData.groceryLists.find(list => list.date === today);
+
+    if (existingList) {
+        // Add items to existing list
+        items.forEach(newItem => {
+            const existing = existingList.items.find(i =>
+                i.name.toLowerCase() === newItem.name.toLowerCase()
+            );
+            if (existing) {
+                existing.quantity += newItem.quantity;
+            } else {
+                existingList.items.push(newItem);
+            }
+        });
+    } else {
+        // Create new list for today
+        appData.groceryLists.push({
+            id: Date.now(),
+            date: today,
+            storeName: '',
+            items: items,
+            createdAt: new Date().toISOString()
+        });
+    }
+
+    saveData();
+}
+
+// Create new empty grocery list
+function createNewGroceryList() {
+    const storeName = prompt('שם הסופרמרקט (אופציונלי):');
+    const today = new Date().toISOString().split('T')[0];
+
+    appData.groceryLists.push({
+        id: Date.now(),
+        date: today,
+        storeName: storeName || '',
+        items: [],
+        createdAt: new Date().toISOString()
+    });
+
+    saveData();
+    renderGroceryLists();
+
+    // Open the new list
+    openGroceryListDetail(appData.groceryLists[appData.groceryLists.length - 1].id);
+}
+
+// Open grocery list detail view
+function openGroceryListDetail(listId) {
+    const list = appData.groceryLists.find(l => l.id === listId);
+    if (!list) return;
+
+    const modal = document.getElementById('grocery-list-modal');
+    const date = new Date(list.date);
+    const dateStr = date.toLocaleDateString('he-IL', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+
+    document.getElementById('grocery-list-title').textContent = dateStr;
+    document.getElementById('grocery-list-store').value = list.storeName || '';
+    document.getElementById('grocery-list-store').onchange = () => {
+        list.storeName = document.getElementById('grocery-list-store').value;
+        saveData();
+    };
+
+    modal.dataset.listId = listId;
+    renderGroceryListItems(list);
+    modal.classList.add('active');
+}
+
+function closeGroceryListModal() {
+    document.getElementById('grocery-list-modal').classList.remove('active');
+    renderGroceryLists();
+}
+
+function renderGroceryListItems(list) {
+    const container = document.getElementById('grocery-list-items');
+
+    if (list.items.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <p>אין פריטים ברשימה</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = '';
+
+    list.items.forEach(item => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'grocery-list-item';
+        itemDiv.innerHTML = `
+            <input type="checkbox" id="check-${item.id}" onchange="toggleGroceryItemSelection(${list.id}, ${item.id})">
+            <label for="check-${item.id}" class="item-name">${escapeHtml(item.name)}</label>
+            <input type="number" class="item-quantity-input" value="${item.quantity}"
+                   onchange="updateGroceryItemQuantity(${list.id}, ${item.id}, this.value)"
+                   min="0.1" step="0.1">
+            <button class="btn-icon danger" onclick="deleteGroceryItem(${list.id}, ${item.id})" title="מחק">
+                <i class="ph ph-trash"></i>
+            </button>
+        `;
+        container.appendChild(itemDiv);
+    });
+}
+
+function addItemToGroceryList() {
+    const listId = parseInt(document.getElementById('grocery-list-modal').dataset.listId);
+    const list = appData.groceryLists.find(l => l.id === listId);
+    if (!list) return;
+
+    const name = prompt('שם הפריט:');
+    if (!name) return;
+
+    const quantity = parseFloat(prompt('כמות:', '1'));
+    if (isNaN(quantity) || quantity <= 0) return;
+
+    list.items.push({
+        id: Date.now(),
+        name: name.trim(),
+        quantity: quantity,
+        selected: false
+    });
+
+    saveData();
+    renderGroceryListItems(list);
+}
+
+function toggleGroceryItemSelection(listId, itemId) {
+    const list = appData.groceryLists.find(l => l.id === listId);
+    if (!list) return;
+
+    const item = list.items.find(i => i.id === itemId);
+    if (!item) return;
+
+    item.selected = document.getElementById(`check-${itemId}`).checked;
+}
+
+function updateGroceryItemQuantity(listId, itemId, newQuantity) {
+    const list = appData.groceryLists.find(l => l.id === listId);
+    if (!list) return;
+
+    const item = list.items.find(i => i.id === itemId);
+    if (!item) return;
+
+    item.quantity = parseFloat(newQuantity) || 1;
+    saveData();
+}
+
+function deleteGroceryItem(listId, itemId) {
+    if (!confirm('למחוק פריט זה?')) return;
+
+    const list = appData.groceryLists.find(l => l.id === listId);
+    if (!list) return;
+
+    list.items = list.items.filter(i => i.id !== itemId);
+    saveData();
+    renderGroceryListItems(list);
+}
+
+function addSelectedToShoppingList() {
+    const listId = parseInt(document.getElementById('grocery-list-modal').dataset.listId);
+    const list = appData.groceryLists.find(l => l.id === listId);
+    if (!list) return;
+
+    const selectedItems = list.items.filter(i => i.selected);
+
+    if (selectedItems.length === 0) {
+        alert('לא נבחרו פריטים');
+        return;
+    }
+
+    selectedItems.forEach(item => {
+        const existing = appData.shoppingList.find(s =>
+            s.name.toLowerCase() === item.name.toLowerCase() && !s.purchased
+        );
+
+        if (existing) {
+            existing.quantity += item.quantity;
+        } else {
+            appData.shoppingList.push({
+                id: Date.now() + Math.random(),
+                name: item.name,
+                category: detectCategory(item.name),
+                quantity: item.quantity,
+                purchased: false,
+                addedBy: appData.settings.userName || 'משתמש',
+                addedDate: new Date().toISOString(),
+                notes: `מרשימה: ${new Date(list.date).toLocaleDateString('he-IL')}`
+            });
+        }
+    });
+
+    saveData();
+    renderAll();
+    closeGroceryListModal();
+    switchTab('shopping');
+
+    alert(`✅ ${selectedItems.length} פריטים נוספו לרשימת הקניות!`);
 }

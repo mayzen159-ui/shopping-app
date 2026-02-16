@@ -1291,3 +1291,111 @@ hr {
         font-size: 0.7rem;
     }
 }
+
+/* ============================================
+   GROCERY LISTS (Previous Shopping Lists)
+   ============================================ */
+
+.grocery-list-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid var(--border);
+}
+
+.grocery-list-card:hover {
+    background: var(--surface-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.grocery-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.grocery-list-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 4px 0;
+}
+
+.store-name {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.grocery-list-count {
+    background: var(--primary);
+    color: #000;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.grocery-list-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.preview-item {
+    background: var(--surface-elevated);
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.preview-more {
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.grocery-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--surface);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.grocery-list-item input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.grocery-list-item .item-name {
+    flex: 1;
+    font-size: 1rem;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.grocery-list-item .item-quantity-input {
+    width: 80px;
+    padding: 6px 10px;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.grocery-list-item .item-quantity-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}

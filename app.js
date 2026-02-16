@@ -81,37 +81,44 @@ function cleanupOldNotes() {
     appData.shoppingList.forEach(item => {
         if (!item.notes) return;
 
-        // Check for old English format: "Low stock (current X, minimum Y)"
-        if (item.notes.includes('low stock (current') || item.notes.includes('Low stock (current')) {
-            const match = item.notes.match(/minimum[:\s]+(\d+)/);
+        let hasOldFormat = false;
+        let needToBuy = 1;
+
+        // Check for old English format (case insensitive): "low stock (current X, minimum Y)"
+        if (item.notes.toLowerCase().includes('low stock')) {
+            hasOldFormat = true;
+            const match = item.notes.match(/minimum[:\s]+(\d+)/i);
             if (match) {
                 const minimum = parseInt(match[1]);
-                const needToBuy = Math.max(1, minimum - (item.quantity || 0));
-                item.notes = `⚠️ קנה ${needToBuy} להגיע למינימום!`;
-                cleaned = true;
+                const currentMatch = item.notes.match(/current[:\s]+(\d+)/i);
+                const current = currentMatch ? parseInt(currentMatch[1]) : 0;
+                needToBuy = Math.max(1, minimum - current);
             }
         }
-        // Check for old Hebrew format: "מלאי נמוך..."
-        else if (item.notes.includes('מלאי נמוך')) {
-            // Try to extract quantity from Hebrew note
+
+        // Check for old Hebrew format: "מלאי נמוך"
+        if (item.notes.includes('מלאי נמוך')) {
+            hasOldFormat = true;
             const match = item.notes.match(/(\d+)/);
             if (match) {
-                const needToBuy = parseInt(match[1]);
-                item.notes = `⚠️ קנה ${needToBuy} להגיע למינימום!`;
-                cleaned = true;
-            } else {
-                // If no number found, default to 1
-                item.notes = `⚠️ קנה 1 להגיע למינימום!`;
-                cleaned = true;
+                needToBuy = parseInt(match[1]);
             }
         }
-        // Check if note already has new format AND old format combined
-        else if (item.notes.includes('⚠️ קנה') && (item.notes.includes('low stock') || item.notes.includes('מלאי נמוך'))) {
-            // Extract only the new format part
+
+        // If we found old format, replace with clean new format
+        if (hasOldFormat) {
+            item.notes = `⚠️ קנה ${needToBuy} להגיע למינימום!`;
+            cleaned = true;
+            console.log(`🔧 Cleaned note for ${item.name}: "${item.notes}"`);
+        }
+        // If note already has new format but ALSO contains old text mixed in
+        else if (item.notes.includes('⚠️ קנה') && item.notes.length > 30) {
+            // Extract only the new format part (it should be short)
             const match = item.notes.match(/⚠️ קנה \d+ להגיע למינימום!/);
             if (match) {
                 item.notes = match[0];
                 cleaned = true;
+                console.log(`🔧 Extracted clean note for ${item.name}: "${item.notes}"`);
             }
         }
     });

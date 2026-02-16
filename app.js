@@ -2214,8 +2214,15 @@ function parseVoiceText(text) {
 
         scannedVoiceItems = items;
         console.log('✅ About to render items...');
-        renderVoiceItems();
-        console.log('✅ Render complete!');
+
+        // Show a "Continue" button instead of auto-showing items
+        debugLog.innerHTML += `<br><button onclick="continueToVoiceItems()" style="margin-top: 10px; padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">✅ נראה טוב - המשך</button>`;
+        debugLog.scrollTop = debugLog.scrollHeight;
+
+        document.getElementById('voice-status').textContent = '✅ סיימתי לעבד - בדקי למטה את הפרטים';
+        document.getElementById('voice-status').style.color = 'var(--success)';
+
+        console.log('✅ Waiting for user confirmation...');
 
     } catch (error) {
         console.error('❌ Error in parseVoiceText:', error);
@@ -2225,6 +2232,12 @@ function parseVoiceText(text) {
         isRecording = false;
         document.getElementById('voice-record-btn').classList.remove('recording');
     }
+}
+
+// Continue to voice items screen after reviewing debug info
+function continueToVoiceItems() {
+    console.log('✅ User confirmed, showing items...');
+    renderVoiceItems();
 }
 
 function renderVoiceItems() {

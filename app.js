@@ -1923,7 +1923,7 @@ function startVoiceRecording() {
         document.getElementById('voice-status').textContent = '🎤 מקליט... דבר עכשיו';
         document.getElementById('voice-status').style.color = 'var(--danger)';
         document.getElementById('voice-transcript').style.display = 'block';
-        document.getElementById('voice-debug').style.display = 'block';
+        // Debug panel is always visible now
         document.getElementById('debug-log').innerHTML = '🎤 Recording started...<br>';
     };
 

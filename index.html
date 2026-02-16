@@ -214,10 +214,10 @@
                             <p id="transcript-text" style="color: var(--text); font-size: 0.95rem; line-height: 1.6;"></p>
                         </div>
 
-                        <!-- Debug Panel -->
-                        <div id="voice-debug" style="margin-top: 15px; padding: 10px; background: var(--surface); border-radius: 8px; font-size: 0.75rem; color: var(--text-tertiary); text-align: left; direction: ltr; display: none; max-height: 150px; overflow-y: auto;">
+                        <!-- Debug Panel - Always visible for testing -->
+                        <div id="voice-debug" style="margin-top: 15px; padding: 10px; background: #2a2a2a; border: 2px solid var(--warning); border-radius: 8px; font-size: 0.75rem; color: #aaa; text-align: left; direction: ltr; max-height: 200px; overflow-y: auto;">
                             <div style="font-weight: 600; margin-bottom: 5px; color: var(--warning);">🐛 Debug Info:</div>
-                            <div id="debug-log"></div>
+                            <div id="debug-log" style="font-family: monospace; line-height: 1.4;">Ready to record...</div>
                         </div>
 
                         <p style="text-align: center; color: var(--text-tertiary); margin-top: 15px; font-size: 0.85rem;">
